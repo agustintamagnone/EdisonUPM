@@ -1,0 +1,17 @@
+# Build
+backend/target/
+*.class
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Local configuration and secrets
+backend/src/main/resources/application-local.properties
+.env
+
+# Uploaded images (local Image Storage)
+backend/storage/
+storage/
