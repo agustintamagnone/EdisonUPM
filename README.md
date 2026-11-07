@@ -1,112 +1,125 @@
 # Edison UPM
 
-Plataforma de ideas de la Universidad Politécnica de Madrid: los estudiantes publican ideas (con capturas y enlace al MVP) y la comunidad deja feedback.
+🇬🇧 **English** · 🇪🇸 [Español](README.es.md)
+
+Ideas platform for the Universidad Politécnica de Madrid: students publish ideas (with screenshots and a link to their MVP) and the community leaves feedback.
 
 ```
 EdisonUPM/
-├── backend/     API REST (Spring Boot 3, Java 21) – arquitectura MVC
-├── database/    Scripts MySQL (base de datos, esquema y datos de ejemplo)
-└── frontend/    (se añadirá) Vista – cliente web
+├── backend/     REST API (Spring Boot 3, Java 21) – MVC architecture
+├── database/    MySQL scripts (database, schema and sample data)
+└── frontend/    (coming soon) View – web client
 ```
 
-## Arquitectura del backend
+## Backend architecture
 
-Sigue el diagrama **MVC Backend (v2)**. Paquete raíz `es.upm.edison`:
+Follows the **MVC Backend (v2)** diagram. Root package `es.upm.edison`:
 
-| Capa | Paquete | Clases |
-|------|---------|--------|
-| View | — | Frontend (cliente web, llama a la API por HTTP/JSON) |
+| Layer | Package | Classes |
+|-------|---------|---------|
+| View | — | Frontend (web client, calls the API over HTTP/JSON) |
 | Controller | `controller` | `IdeaController`, `AttachmentController`, `CommentController`, `UserController` |
 | Service | `service` | `IdeaService`, `AttachmentService`, `CommentService`, `UserService` |
 | Repository | `repository` | `IdeaRepository` (+ `CategoryRepository`, `SavedIdeaRepository`), `AttachmentRepository`, `CommentRepository`, `UserRepository` |
 | Model | `model` | `User`, `Idea`, `Category`, `Attachment`, `Comment`, `SavedIdea`, enums `UserRole`, `IdeaStatus`, `Visibility`, `CommentStatus` |
-| Infraestructura | `service.storage` | `ImageStorage` / `FileSystemImageStorage` (Image Storage) + MySQL (Relational Database) |
+| Infrastructure | `service.storage` | `ImageStorage` / `FileSystemImageStorage` (Image Storage) + MySQL (Relational Database) |
 
-Otros paquetes: `dto` (peticiones/respuestas JSON), `exception` (errores y `GlobalExceptionHandler`), `config` (CORS, usuario actual).
+Other packages: `dto` (JSON requests/responses), `exception` (errors and `GlobalExceptionHandler`), `config` (CORS, current user).
 
-### Endpoints principales
+### Main endpoints
 
-| Método | Ruta | Descripción |
+| Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/categories` | Categorías |
-| GET | `/api/ideas?q=&categoryId=&page=&size=` | Explorar/buscar ideas publicadas |
-| GET | `/api/ideas/mine` | Mis ideas |
-| GET | `/api/ideas/{id}` | Detalle de una idea |
-| POST | `/api/ideas` | Paso 1 – crear borrador (Basics) |
-| PUT | `/api/ideas/{id}/basics` | Paso 1 – editar Basics |
-| PUT | `/api/ideas/{id}/classification` | Paso 2 – categorías (1-2) y etapa |
-| PUT / DELETE | `/api/ideas/{id}/mvp-link` | Paso 2 – enlace MVP |
-| POST | `/api/ideas/{id}/publish` | Paso 3 – publicar (errores agrupados por paso: `basics`, `mvpProof`, `review`) |
-| POST | `/api/ideas/{id}/archive` | Archivar |
-| GET / POST | `/api/ideas/{id}/attachments` | Listar / subir captura (`multipart/form-data`, campo `file`) |
-| DELETE | `/api/ideas/{id}/attachments/{attachmentId}` | Eliminar captura |
-| GET | `/api/ideas/{id}/attachments/{attachmentId}/file` | Servir la imagen |
-| GET / POST | `/api/ideas/{id}/comments` | Listar / publicar comentarios (`clientRequestId` opcional para idempotencia) |
-| PUT / DELETE | `/api/comments/{commentId}` | Editar / borrar (soft delete) comentario propio |
-| GET / PUT | `/api/users/me` | Perfil propio |
-| GET / PUT / DELETE | `/api/users/me/saved-ideas[/{ideaId}]` | Ideas guardadas |
-| GET | `/api/users/founders`, `/api/users/mentors`, `/api/users/{id}` | Fundadores, mentores, perfiles |
+| GET | `/api/categories` | Categories |
+| GET | `/api/ideas?q=&categoryId=&page=&size=` | Browse/search published ideas |
+| GET | `/api/ideas/mine` | My ideas |
+| GET | `/api/ideas/{id}` | Idea details |
+| POST | `/api/ideas` | Step 1 – create draft (Basics) |
+| PUT | `/api/ideas/{id}/basics` | Step 1 – edit Basics |
+| PUT | `/api/ideas/{id}/classification` | Step 2 – categories (1-2) and stage |
+| PUT / DELETE | `/api/ideas/{id}/mvp-link` | Step 2 – MVP link |
+| POST | `/api/ideas/{id}/publish` | Step 3 – publish (errors grouped by step: `basics`, `mvpProof`, `review`) |
+| POST | `/api/ideas/{id}/archive` | Archive |
+| GET / POST | `/api/ideas/{id}/attachments` | List / upload screenshot (`multipart/form-data`, field `file`) |
+| DELETE | `/api/ideas/{id}/attachments/{attachmentId}` | Remove screenshot |
+| GET | `/api/ideas/{id}/attachments/{attachmentId}/file` | Serve the image |
+| GET / POST | `/api/ideas/{id}/comments` | List / post comments (optional `clientRequestId` for idempotency) |
+| PUT / DELETE | `/api/comments/{commentId}` | Edit / delete (soft delete) own comment |
+| GET / PUT | `/api/users/me` | Own profile |
+| GET / PUT / DELETE | `/api/users/me/saved-ideas[/{ideaId}]` | Saved ideas |
+| GET | `/api/users/founders`, `/api/users/mentors`, `/api/users/{id}` | Founders, mentors, profiles |
 
-> **Autenticación (provisional):** mientras no haya login, el frontend envía el id del usuario en la cabecera `X-User-Id`. Sin cabecera = usuario anónimo. Ver `config/CurrentUser.java`.
+> **Authentication (temporary):** until there is a login, the frontend sends the user id in the `X-User-Id` header. No header = anonymous user. See `config/CurrentUser.java`.
 
 ---
 
-## Base de datos MySQL – guía paso a paso
+## MySQL database – step-by-step guide
 
-Cada paso tiene instrucciones para **macOS** y **Windows**. Los comandos de Windows están pensados para **PowerShell** (Terminal de Windows).
+Each step has instructions for **macOS** and **Windows**. The Windows commands are meant for **PowerShell** (Windows Terminal).
 
-### 1. Instalar / arrancar MySQL
+### 1. Install / start MySQL
 
 #### macOS (Homebrew)
 
 ```bash
-brew install mysql          # si no está instalado
-brew services start mysql   # arranca el servidor y lo deja activo al iniciar sesión
-mysql_secure_installation   # (recomendado) define la contraseña de root
+brew install mysql          # if it is not installed
+brew services start mysql   # starts the server and keeps it running at login
+mysql_secure_installation   # (recommended) sets the root password
 ```
 
-Comprueba que responde:
+Check that it responds:
 
 ```bash
 mysqladmin -u root -p ping   # -> mysqld is alive
 ```
 
-> Si `mysqld` falla con `Library not loaded: ... libabsl_...dylib`, la instalación de Homebrew quedó desfasada tras actualizar dependencias: ejecuta `brew reinstall mysql` (o `brew upgrade mysql`).
+> If `mysqld` fails with `Library not loaded: ... libabsl_...dylib`, the Homebrew installation is out of date after a dependency update: run `brew reinstall mysql` (or `brew upgrade mysql`).
+
+> If `brew services start mysql` says it started but `mysqladmin` cannot connect, check the log `/opt/homebrew/var/mysql/*.err`. If it shows `Cannot upgrade from 80300 to ...`, Homebrew upgraded MySQL to a version that cannot read the old data folder. If that folder has no data you need, move it aside and create a new one:
+>
+> ```bash
+> brew services stop mysql
+> mv /opt/homebrew/var/mysql /opt/homebrew/var/mysql.bak
+> mysqld --initialize-insecure --user=$(whoami) --datadir=/opt/homebrew/var/mysql
+> brew services start mysql
+> ```
+>
+> (root has no password afterwards; run `mysql_secure_installation` to set one). If you need to keep the data, install a compatible version instead of the latest (e.g. `brew install mysql@8.4` for 8.3 data).
 
 #### Windows
 
-1. Descarga **MySQL Installer** desde <https://dev.mysql.com/downloads/installer/> (o, en PowerShell: `winget install Oracle.MySQL`).
-2. En el instalador elige **Server only** (o *Custom* añadiendo también *MySQL Shell* / *Workbench* si quieres una interfaz gráfica).
-3. Durante la configuración:
-   - Puerto: **3306** (por defecto).
-   - Define la contraseña de **root** y apúntala.
-   - Deja marcado **Configure MySQL Server as a Windows Service** y **Start the MySQL Server at System Startup**: así MySQL arranca solo con Windows.
-4. Añade el cliente `mysql` al `PATH` para poder usarlo desde cualquier terminal (ajusta la versión a la que hayas instalado):
+1. Download **MySQL Installer** from <https://dev.mysql.com/downloads/installer/> (or, in PowerShell: `winget install Oracle.MySQL`).
+2. In the installer choose **Server only** (or *Custom*, also adding *MySQL Shell* / *Workbench* if you want a graphical interface).
+3. During configuration:
+   - Port: **3306** (default).
+   - Set the **root** password and write it down.
+   - Keep **Configure MySQL Server as a Windows Service** and **Start the MySQL Server at System Startup** checked, so MySQL starts with Windows.
+4. Add the `mysql` client to the `PATH` so you can use it from any terminal (adjust the version to the one you installed):
 
    ```powershell
    [Environment]::SetEnvironmentVariable("Path", $env:Path + ";C:\Program Files\MySQL\MySQL Server 8.4\bin", "User")
    ```
 
-   Cierra y vuelve a abrir la terminal para que el cambio se aplique.
+   Close and reopen the terminal for the change to take effect.
 
-Comprueba que el servicio está en marcha y que responde:
+Check that the service is running and responds:
 
 ```powershell
-Get-Service MySQL*            # Status debe ser "Running"
+Get-Service MySQL*            # Status must be "Running"
 mysqladmin -u root -p ping    # -> mysqld is alive
 ```
 
-> Si el servicio está parado: `Start-Service MySQL84` (el nombre exacto aparece en `Get-Service MySQL*`), o desde *services.msc*.
+> If the service is stopped: `Start-Service MySQL84` (the exact name is shown by `Get-Service MySQL*`), or use *services.msc*.
 
-**Alternativa con Docker** (macOS y Windows con Docker Desktop, sin instalar MySQL):
+**Docker alternative** (macOS and Windows with Docker Desktop, without installing MySQL):
 
 ```bash
 docker run -d --name edison-mysql -p 3306:3306 -e MYSQL_ROOT_PASSWORD=root mysql:8.4
 ```
 
-### 2. Crear la base de datos y el usuario de la aplicación
+### 2. Create the database and the application user
 
-Desde la raíz del repositorio.
+From the repository root.
 
 **macOS:**
 
@@ -114,17 +127,17 @@ Desde la raíz del repositorio.
 mysql -u root -p < database/00_create_database.sql
 ```
 
-**Windows (PowerShell):** PowerShell no admite la redirección `<`, así que se usa la opción `-e "source ..."` del cliente de MySQL:
+**Windows (PowerShell):** PowerShell does not support the `<` redirection, so use the MySQL client's `-e "source ..."` option:
 
 ```powershell
 mysql -u root -p -e "source database/00_create_database.sql"
 ```
 
-> Alternativas en Windows: abrir **CMD** (`cmd.exe`) y usar el mismo comando que en macOS, o abrir el archivo `.sql` en **MySQL Workbench** y ejecutarlo con el rayo ⚡.
+> Windows alternatives: open **CMD** (`cmd.exe`) and use the same command as on macOS, or open the `.sql` file in **MySQL Workbench** and run it with the lightning bolt ⚡.
 
-Crea la base `edison_upm` (utf8mb4) y el usuario `edison` / contraseña `edison` con permisos solo sobre esa base.
+This creates the `edison_upm` database (utf8mb4) and the user `edison` / password `edison`, with permissions on that database only.
 
-### 3. Crear las tablas
+### 3. Create the tables
 
 **macOS:**
 
@@ -138,9 +151,9 @@ mysql -u edison -p edison_upm < database/01_schema.sql
 mysql -u edison -p edison_upm -e "source database/01_schema.sql"
 ```
 
-> ⚠️ Este script **borra y recrea** las tablas. Úsalo para inicializar, no sobre datos reales.
+> ⚠️ This script **drops and recreates** the tables. Use it to initialize, not on real data.
 
-### 4. (Opcional) Datos de ejemplo
+### 4. (Optional) Sample data
 
 **macOS:**
 
@@ -154,44 +167,44 @@ mysql -u edison -p edison_upm < database/02_seed.sql
 mysql -u edison -p edison_upm -e "source database/02_seed.sql"
 ```
 
-Incluye usuarios de prueba (p. ej. estudiante `11111111-1111-1111-1111-111111111111`, profesor `33333333-3333-3333-3333-333333333333`), categorías, una idea publicada y un borrador.
+Includes test users (e.g. student `11111111-1111-1111-1111-111111111111`, professor `33333333-3333-3333-3333-333333333333`), categories, one published idea and one draft.
 
-### 5. Conectar el backend
+### 5. Connect the backend
 
-Por defecto el backend usa `jdbc:mysql://localhost:3306/edison_upm` con usuario/contraseña `edison`. Para usar otros valores, **sin subirlos a Git**:
+By default the backend uses `jdbc:mysql://localhost:3306/edison_upm` with user/password `edison`. To use other values, **without committing them to Git**:
 
-- Variables de entorno: `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`. Para la terminal actual:
-  - macOS: `export DB_PASSWORD=mi-clave`
-  - Windows (PowerShell): `$env:DB_PASSWORD = "mi-clave"`
-- O bien, en ambos sistemas, copia `backend/src/main/resources/application-local.properties.example` a `application-local.properties` (está en `.gitignore`).
+- Environment variables: `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`. For the current terminal:
+  - macOS: `export DB_PASSWORD=my-password`
+  - Windows (PowerShell): `$env:DB_PASSWORD = "my-password"`
+- Or, on both systems, copy `backend/src/main/resources/application-local.properties.example` to `application-local.properties` (it is in `.gitignore`).
 
-Hibernate está en modo `validate`: al arrancar comprueba que las entidades coinciden con las tablas creadas por `01_schema.sql`, pero nunca las modifica.
+Hibernate runs in `validate` mode: on startup it checks that the entities match the tables created by `01_schema.sql`, but it never changes them.
 
 ---
 
-## Ejecutar el backend
+## Run the backend
 
-Requisitos: **Java 21+** y **Maven**.
+Requirements: **Java 21+** and **Maven**.
 
 - macOS: `brew install openjdk@21 maven`
-- Windows: `winget install Microsoft.OpenJDK.21` y Maven desde <https://maven.apache.org/download.cgi> (descomprime el zip y añade su carpeta `bin` al `PATH`, igual que con MySQL). Comprueba con `java -version` y `mvn -v` en una terminal nueva. IntelliJ IDEA trae Maven integrado, así que también puedes ejecutar el proyecto desde ahí.
+- Windows: `winget install Microsoft.OpenJDK.21` and Maven from <https://maven.apache.org/download.cgi> (unzip it and add its `bin` folder to the `PATH`, as with MySQL). Check with `java -version` and `mvn -v` in a new terminal. IntelliJ IDEA ships with Maven, so you can also run the project from there.
 
-El comando es el mismo en macOS y Windows:
+The command is the same on macOS and Windows:
 
 ```bash
 cd backend
 mvn spring-boot:run
 ```
 
-La API queda en `http://localhost:8080`. Prueba rápida:
+The API runs at `http://localhost:8080`. Quick check:
 
 ```bash
 curl http://localhost:8080/api/ideas
 ```
 
-En Windows (PowerShell) también puedes usar `Invoke-RestMethod http://localhost:8080/api/ideas` o abrir la URL en el navegador.
+On Windows (PowerShell) you can also use `Invoke-RestMethod http://localhost:8080/api/ideas` or open the URL in the browser.
 
-Las capturas subidas se guardan en `backend/storage/images` (configurable con `IMAGES_DIR`). El origen del frontend permitido por CORS se configura con `CORS_ALLOWED_ORIGINS` (por defecto `http://localhost:5173,http://localhost:3000`).
+Uploaded screenshots are stored in `backend/storage/images` (configurable with `IMAGES_DIR`). The frontend origin allowed by CORS is set with `CORS_ALLOWED_ORIGINS` (default `http://localhost:5173,http://localhost:3000`).
 
 ### Tests
 
@@ -200,4 +213,4 @@ cd backend
 mvn test
 ```
 
-Los tests usan una base de datos H2 en memoria (modo MySQL), así que no necesitan MySQL.
+The tests use an in-memory H2 database (MySQL mode), so they do not need MySQL.
