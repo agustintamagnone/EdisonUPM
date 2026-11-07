@@ -1,0 +1,134 @@
+@startuml Comment_on_an_Idea_v2
+title Edison UPM - Comment on a Published Idea (v2)
+
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam dpi 130
+skinparam ActivityBackgroundColor #F1F1F1
+skinparam ActivityBorderColor #555555
+skinparam ActivityDiamondBackgroundColor #FFFFFF
+skinparam ActivityDiamondBorderColor #555555
+skinparam SwimlaneBorderColor #333333
+skinparam SwimlaneTitleFontStyle bold
+skinparam ArrowColor #333333
+
+|User|
+|Frontend|
+|Backend|
+
+'======== OPEN THE IDEA ========
+|User|
+start
+:Open published idea;
+
+|Frontend|
+:Request idea and comments;
+
+|Backend|
+:Load idea
+<size:10><i>IdeaService → IdeaRepository</i></size>;
+if (Idea exists and is PUBLISHED?) then (no)
+  |Frontend|
+  :Display "idea unavailable";
+  stop
+else (yes)
+endif
+
+|Backend|
+if (Visibility?) then (UPM_COMMUNITY)
+  if (Authenticated Student or Professor?) then (no)
+    |Frontend|
+    :Request authentication;
+    stop
+  else (yes)
+  endif
+else (PUBLIC)
+endif
+
+|Backend|
+:Load VISIBLE comments,
+newest first
+<size:10><i>CommentService → CommentRepository</i></size>;
+
+|Frontend|
+:Display idea and Community Feedback;
+
+|User|
+if (Wants to comment?) then (no)
+  stop
+else (yes)
+endif
+
+'======== PERMISSION CHECK ========
+|Backend|
+if (User is authenticated?) then (no)
+  |Frontend|
+  :Request authentication;
+  stop
+else (yes)
+endif
+
+|Backend|
+if (User is the founder?) then (no)
+  if (feedbackEnabled?) then (no)
+    |Frontend|
+    :Display "feedback disabled" message;
+    stop
+  else (yes)
+  endif
+  |Backend|
+  if (User role in allowedCommenterRoles?) then (no)
+    |Frontend|
+    :Display permission message;
+    stop
+  else (yes)
+  endif
+else (yes)
+endif
+
+'======== WRITE THE COMMENT ========
+|Frontend|
+:Display comment form;
+
+repeat
+  |User|
+  :Enter comment and
+  click "Post feedback";
+  |Frontend|
+  :Trim content and validate
+  (not empty, max. 500 characters,
+  safe HTTP/HTTPS URLs);
+backward:Display validation error;
+repeat while (Comment valid?) is (no) not (yes)
+
+|Frontend|
+:Disable submit button and
+send idempotent comment request;
+
+'======== SAVE THE COMMENT ========
+|Backend|
+:Verify again: idea PUBLISHED,
+user permission and content
+<size:10><i>CommentService</i></size>;
+if (Request valid?) then (no)
+  |Frontend|
+  :Enable submit button,
+  keep comment text
+  and display error;
+else (yes)
+  |Backend|
+  :Create Comment with status VISIBLE,
+  createdAt, author and idea
+  <size:10><i>CommentService → CommentRepository</i></size>;
+  |Frontend|
+  :Clear comment form and
+  enable submit button;
+  :Show new comment first
+  and update comment count;
+endif
+
+|User|
+stop
+
+@enduml

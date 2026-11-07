@@ -1,0 +1,80 @@
+@startuml Component_Diagram_v2
+' ELK layout: orthogonal routing where each arrow gets its own track (no overlapping lines)
+!pragma layout elk
+title Edison UPM - Component Diagram (v2)
+
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam dpi 130
+skinparam packageStyle rectangle
+skinparam component {
+  BackgroundColor #F1F1F1
+  BorderColor #555555
+}
+skinparam interface {
+  BackgroundColor #FFFFFF
+  BorderColor #555555
+}
+skinparam package {
+  BorderColor #333333
+  FontStyle bold
+}
+skinparam ArrowColor #333333
+<style>
+component {
+  MinimumWidth 230
+}
+</style>
+
+actor "Platform User" as PlatformUser
+
+package "Client Application (View)" as CLIENT {
+  component "Web Client (Frontend)\n\nREST calls over HTTP / JSON\n(multipart for image uploads)" as WebClient
+}
+
+package "Backend Application" as BACKEND {
+  interface "Ideas API" as IIdeas
+  interface "Attachments API" as IAttachments
+  interface "Comments API" as IComments
+  interface "Users API" as IUsers
+
+  component "Ideas\n\nIdeaController\nIdeaService\nIdeaRepository" as Ideas
+  component "Attachments\n\nAttachmentController\nAttachmentService\nAttachmentRepository" as Attachments
+  component "Comments\n\nCommentController\nCommentService\nCommentRepository" as Comments
+  component "Users\n\nUserController\nUserService\nUserRepository" as Users
+
+  Ideas -up- IIdeas
+  Attachments -up- IAttachments
+  Comments -up- IComments
+  Users -up- IUsers
+}
+
+package "Infrastructure" as INFRA {
+  database "Relational Database" as DB
+  folder "Image Storage" as IMG
+}
+
+' --- client side ---
+PlatformUser --> WebClient
+WebClient ..> IIdeas
+WebClient ..> IAttachments
+WebClient ..> IComments
+WebClient ..> IUsers
+
+' --- dependencies between backend components (service -> repository in the MVC) ---
+Attachments ..> Ideas : load draft,\ncheck founder
+Ideas ..> Attachments : count screenshots\nbefore publishing
+Comments ..> Ideas : idea status and\nfeedback settings
+Comments ..> Users : comment author
+Ideas ..> Users : founder
+Users ..> Ideas : saved ideas
+
+' --- infrastructure ---
+Ideas --> DB : SQL
+Attachments --> DB : SQL
+Comments --> DB : SQL
+Users --> DB : SQL
+Attachments --> IMG : image files
+
+@enduml

@@ -1,0 +1,114 @@
+@startuml Attach_a_Photo_v2
+title Edison UPM - Attach a Photo (Screenshots and MVP Link) (v2)
+
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam dpi 130
+skinparam ActivityBackgroundColor #F1F1F1
+skinparam ActivityBorderColor #555555
+skinparam ActivityDiamondBackgroundColor #FFFFFF
+skinparam ActivityDiamondBorderColor #555555
+skinparam SwimlaneBorderColor #333333
+skinparam SwimlaneTitleFontStyle bold
+skinparam ArrowColor #333333
+
+|Student|
+|Frontend|
+|Backend|
+
+|Student|
+start
+:Open step "MVP & proof"
+of a DRAFT idea;
+
+|Backend|
+:Check Student is the founder
+and load screenshots and MVP link
+<size:10><i>AttachmentService → AttachmentRepository</i></size>;
+
+|Frontend|
+:Display current screenshots
+and MVP link preview;
+
+'======== ADD SCREENSHOTS ========
+while (Student adds a screenshot?\n(button enabled only if < 5)) is (yes)
+  |Student|
+  :Select image file;
+  |Frontend|
+  :Upload file
+  (multipart/form-data);
+  |Backend|
+  :Validate ownership, count < 5,
+  type (PNG / JPG / WebP) and size <= 5 MB
+  <size:10><i>AttachmentService</i></size>;
+  if (Screenshot valid?) then (yes)
+    :Store image file
+    <size:10><i>AttachmentService → Image Storage</i></size>;
+    :Save Attachment with displayOrder
+    <size:10><i>AttachmentService → AttachmentRepository</i></size>;
+    |Frontend|
+    :Display screenshot preview;
+  else (no)
+    |Frontend|
+    :Display format, size
+    or maximum error;
+  endif
+endwhile (no)
+
+'======== REMOVE SCREENSHOTS ========
+while (Student removes a screenshot?) is (yes)
+  |Student|
+  :Select screenshot to remove;
+  |Backend|
+  :Delete image file and Attachment
+  <size:10><i>AttachmentService → Image Storage</i></size>
+  <size:10><i>+ AttachmentRepository</i></size>;
+  |Frontend|
+  :Remove screenshot preview;
+endwhile (no)
+
+'======== MVP LINK ========
+if (Student adds or edits MVP link?) then (yes)
+  repeat
+    |Student|
+    :Enter external URL;
+    |Frontend|
+    :Validate URL format;
+  backward:Display invalid URL error;
+  repeat while (URL is HTTP or HTTPS?) is (no) not (yes)
+  |Backend|
+  :Save mvpUrl in DRAFT
+  <size:10><i>IdeaService → IdeaRepository</i></size>;
+  |Frontend|
+  :Display link preview;
+else (no)
+endif
+
+if (Student removes MVP link?) then (yes)
+  |Student|
+  :Select "Remove link";
+  |Backend|
+  :Clear mvpUrl in DRAFT
+  <size:10><i>IdeaService → IdeaRepository</i></size>;
+  |Frontend|
+  :Remove link preview;
+else (no)
+endif
+
+|Frontend|
+:Update synchronized idea preview;
+
+|Student|
+:Select "Next: Review & publish";
+|Frontend|
+:Open step "Review & publish";
+note right
+  Every change is saved when it
+  happens, so no extra save step
+  is needed here.
+end note
+|Student|
+stop
+
+@enduml

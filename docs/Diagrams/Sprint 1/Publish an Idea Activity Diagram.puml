@@ -1,0 +1,113 @@
+@startuml Publish_an_Idea_v2
+title Edison UPM - Publish an Idea (v2)
+
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam dpi 130
+skinparam ActivityBackgroundColor #F1F1F1
+skinparam ActivityBorderColor #555555
+skinparam ActivityDiamondBackgroundColor #FFFFFF
+skinparam ActivityDiamondBorderColor #555555
+skinparam SwimlaneBorderColor #333333
+skinparam SwimlaneTitleFontStyle bold
+skinparam ArrowColor #333333
+
+|Student|
+start
+:Select "Publish idea";
+
+|Frontend|
+:Open publication wizard;
+
+repeat
+  '======== STEP 1: BASICS ========
+  repeat
+    |Frontend|
+    :Show step "Basics"
+    (with errors, if any);
+    |Student|
+    :Enter title, elevator pitch,
+    problem statement and
+    solution description;
+    |Frontend|
+    :Update live preview;
+    |Backend|
+    :Validate Basics
+    <size:10><i>IdeaService</i></size>;
+  backward:Return Basics errors;
+  repeat while (Basics valid?) is (no) not (yes)
+
+  |Backend|
+  if (Draft already exists?) then (no)
+    :Create Idea with status DRAFT
+    and current Student as founder
+    <size:10><i>IdeaService → IdeaRepository</i></size>;
+  else (yes)
+    :Update Basics in DRAFT
+    <size:10><i>IdeaService → IdeaRepository</i></size>;
+  endif
+
+  '======== STEP 2: MVP & PROOF ========
+  repeat
+    |Frontend|
+    :Show step "MVP & proof"
+    (with errors, if any);
+    |Student|
+    :Select 1 or 2 categories
+    and development stage;
+    |Frontend|
+    :Update live preview;
+    |Backend|
+    :Validate categories and stage
+    <size:10><i>IdeaService</i></size>;
+  backward:Return MVP & proof errors;
+  repeat while (Categories and stage valid?) is (no) not (yes)
+  :Save categories and stage in DRAFT
+  <size:10><i>IdeaService → IdeaRepository</i></size>;
+
+  |Student|
+  :Attach screenshots and MVP link|
+  note right
+    Sub-activity: see
+    "Attach a Photo" diagram
+    (optional, max. 5 screenshots)
+  end note
+
+  '======== STEP 3: REVIEW & PUBLISH ========
+  |Frontend|
+  :Open step "Review & publish"
+  and show idea summary;
+  |Student|
+  :Configure feedback permissions
+  (feedback enabled, allowed roles);
+  :Select visibility
+  (PUBLIC / UPM_COMMUNITY);
+  :Accept publication declaration;
+  :Select "Publish idea";
+
+  |Backend|
+  :Validate complete publication
+  (Basics, 1-2 categories, stage,
+  max. 5 screenshots, declaration)
+  <size:10><i>IdeaService + AttachmentRepository</i></size>;
+backward:Keep status DRAFT and
+return errors grouped by wizard step
+(wizard reopens on first invalid step);
+repeat while (Publication valid?) is (no) not (yes)
+
+|Backend|
+:Set status to PUBLISHED
+and register publishedAt;
+:Apply visibility and
+feedback settings
+<size:10><i>IdeaService → IdeaRepository</i></size>;
+
+|Frontend|
+:Show publication confirmation;
+:Redirect to "My ideas";
+
+|Student|
+stop
+
+@enduml

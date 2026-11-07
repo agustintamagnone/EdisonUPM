@@ -1,0 +1,197 @@
+@startuml MVC_Backend_v2
+' Edison UPM - MVC Backend (v2)
+' Changes vs v1:
+'  - New AttachmentController / AttachmentService / AttachmentRepository
+'  - New Attachment entity (screenshots) replaces the screenshot part of "MVP Evidence"
+'  - Frontend modelled as the View layer (not as an actor)
+'  - Model expressed as UML classes with typed attributes and real multiplicities
+
+title Edison UPM - MVC Backend (v2)
+
+allowmixing
+skinparam linetype polyline
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam dpi 130
+skinparam nodesep 90
+skinparam ranksep 110
+skinparam padding 4
+skinparam packagePadding 20
+skinparam packageStyle rectangle
+skinparam rectangle {
+  BackgroundColor #F1F1F1
+  BorderColor #555555
+}
+skinparam class {
+  BackgroundColor #F1F1F1
+  BorderColor #555555
+  AttributeFontSize 11
+}
+skinparam package {
+  BorderColor #333333
+  FontStyle bold
+}
+hide circle
+hide empty methods
+
+' ================= VIEW =================
+package "View" as VIEW {
+  rectangle "Frontend (Web Client)" as Frontend
+}
+
+' ================= CONTROLLER =================
+package "Controller" as CTRL {
+  rectangle "CommentController\n\nList and post comments\nEdit own comments\nDelete own comments" as CommentController
+  rectangle "IdeaController\n\nCreate and edit drafts\nPublish and archive ideas\nBrowse and search ideas\nManage MVP link" as IdeaController
+  rectangle "AttachmentController\n\nUpload screenshot to a draft\nList idea screenshots\nRemove screenshot\nServe screenshot file" as AttachmentController
+  rectangle "UserController\n\nView user profiles\nUpdate own profile\nBrowse founders and mentors\nManage saved ideas" as UserController
+}
+
+' ================= SERVICE =================
+package "Service" as SRV {
+  rectangle "CommentService\n\nValidate comments\nCheck feedback permissions\nApply soft deletion" as CommentService
+  rectangle "IdeaService\n\nValidate idea information\nManage publication process\nCheck founder permissions\nManage MVP link" as IdeaService
+  rectangle "AttachmentService\n\nCheck founder owns the draft\nEnforce max. 5 screenshots\nValidate type (PNG/JPG/WebP) and size (5 MB)\nStore and delete image files\nKeep display order" as AttachmentService
+  rectangle "UserService\n\nManage user profiles\nManage saved ideas\nFind professors and mentors" as UserService
+}
+
+' ================= REPOSITORY =================
+package "Repository" as REPO {
+  rectangle "CommentRepository\n\nComment" as CommentRepository
+  rectangle "IdeaRepository\n\nIdea, Category\nSavedIdea" as IdeaRepository
+  rectangle "AttachmentRepository\n\nAttachment" as AttachmentRepository
+  rectangle "UserRepository\n\nUser" as UserRepository
+}
+
+' ================= INFRASTRUCTURE =================
+package "Infrastructure" as INFRA {
+  database "Relational Database" as DB
+  folder "Image Storage" as Storage
+}
+
+' ================= MODEL =================
+package "Model" as MODEL {
+
+  class User {
+    id : UUID
+    fullName : String
+    email : String
+    role : UserRole
+  }
+
+  class Idea {
+    id : UUID
+    title : String
+    elevatorPitch : String
+    problemStatement : String
+    solutionDescription : String
+    mvpUrl : URL [0..1]
+    status : IdeaStatus
+    visibility : Visibility
+    developmentStage : String
+    feedbackEnabled : Boolean
+    allowedCommenterRoles : Set<UserRole>
+    createdAt : DateTime
+    publishedAt : DateTime [0..1]
+  }
+
+  class Category {
+    id : UUID
+    name : String
+  }
+
+  class Attachment {
+    id : UUID
+    fileName : String
+    contentType : String
+    sizeBytes : Long
+    storageKey : String
+    displayOrder : Integer
+    uploadedAt : DateTime
+  }
+
+  class Comment {
+    id : UUID
+    content : String {length <= 500}
+    status : String
+    createdAt : DateTime
+    updatedAt : DateTime [0..1]
+  }
+
+  class SavedIdea {
+    savedAt : DateTime
+  }
+
+  enum UserRole {
+    STUDENT
+    PROFESSOR
+    ADMINISTRATOR
+    INVESTOR
+  }
+  enum IdeaStatus {
+    DRAFT
+    PUBLISHED
+    ARCHIVED
+  }
+  enum Visibility {
+    PUBLIC
+    UPM_COMMUNITY
+  }
+
+  ' --- layout hints ---
+  Comment -[hidden]right- Idea
+
+  ' --- associations (multiplicities on both ends) ---
+  Idea "1" *-left- "0..*" Comment : receives
+  Idea "1" *-down- "0..5" Attachment : screenshots
+  Idea "0..*" -up-> "1..2" Category : classified in
+  Idea "0..*" -up-> "1" User : founder
+  Comment "0..*" -up-> "1" User : author
+  SavedIdea "0..*" -up-> "1" User : saved by
+  SavedIdea "0..*" -down-> "1" Idea
+
+  ' keep enums grouped together below the classes
+  Attachment -[hidden]right- UserRole
+  UserRole -[hidden]right- IdeaStatus
+  IdeaStatus -[hidden]right- Visibility
+}
+
+' ================= LAYER FLOW =================
+Frontend --> UserController
+Frontend --> CommentController
+Frontend --> IdeaController
+Frontend --> AttachmentController
+
+CommentController --> CommentService
+IdeaController --> IdeaService
+AttachmentController --> AttachmentService
+UserController --> UserService
+
+CommentService --> CommentRepository
+CommentService --> IdeaRepository
+CommentService --> UserRepository
+
+IdeaService --> IdeaRepository
+IdeaService --> UserRepository
+IdeaService --> AttachmentRepository
+
+AttachmentService --> AttachmentRepository
+AttachmentService --> IdeaRepository
+
+UserService --> UserRepository
+UserService --> IdeaRepository
+
+REPO --> DB : SQL
+AttachmentService --> Storage
+
+' repositories persist the model (each repository lists the entities it persists)
+REPO ..> MODEL : <<persists>>
+
+' ordering hints
+VIEW -[hidden]down- CTRL
+CTRL -[hidden]down- SRV
+SRV -[hidden]down- REPO
+REPO -[hidden]down- MODEL
+
+@enduml
