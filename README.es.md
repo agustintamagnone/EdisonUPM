@@ -120,8 +120,6 @@ mysql -u root -p < database/00_create_database.sql
 mysql -u root -p -e "source database/00_create_database.sql"
 ```
 
-> Si aparece `ERROR 1819 ... Your password does not satisfy the current policy requirements`, la contraseña del script no cumple la política de tu MySQL. Usa una más fuerte en `00_create_database.sql` (y en el backend), o consulta la política con `SHOW VARIABLES LIKE 'validate_password%';`.
-
 > Alternativas en Windows: abrir **CMD** (`cmd.exe`) y usar el mismo comando que en macOS, o abrir el archivo `.sql` en **MySQL Workbench** y ejecutarlo con el rayo ⚡.
 
 Crea la base `edison_upm` (utf8mb4) y el usuario `edison` con contraseña `Edison_Upm2026` y permisos solo sobre esa base. La contraseña cumple la política de contraseñas por defecto de MySQL (`validate_password`); si la cambias, cámbiala también en el backend (paso 5).

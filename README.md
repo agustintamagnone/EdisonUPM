@@ -120,8 +120,6 @@ mysql -u root -p < database/00_create_database.sql
 mysql -u root -p -e "source database/00_create_database.sql"
 ```
 
-> If you get `ERROR 1819 ... Your password does not satisfy the current policy requirements`, the script's password does not meet your MySQL policy. Use a stronger one in `00_create_database.sql` (and in the backend), or check the policy with `SHOW VARIABLES LIKE 'validate_password%';`.
-
 > Windows alternatives: open **CMD** (`cmd.exe`) and use the same command as on macOS, or open the `.sql` file in **MySQL Workbench** and run it with the lightning bolt ⚡.
 
 This creates the `edison_upm` database (utf8mb4) and the user `edison` with password `Edison_Upm2026`, with permissions on that database only. The password meets MySQL's default password policy (`validate_password`); if you change it, change it in the backend too (step 5).
