@@ -122,7 +122,7 @@ mysql -u root -p -e "source database/00_create_database.sql"
 
 > Alternativas en Windows: abrir **CMD** (`cmd.exe`) y usar el mismo comando que en macOS, o abrir el archivo `.sql` en **MySQL Workbench** y ejecutarlo con el rayo ⚡.
 
-Crea la base `edison_upm` (utf8mb4) y el usuario `edison` con contraseña `Edison_Upm2026` y permisos solo sobre esa base. La contraseña cumple la política de contraseñas por defecto de MySQL (`validate_password`); si la cambias, cámbiala también en el backend (paso 5).
+Crea la base `edison_upm` (utf8mb4) y el usuario `edison` con contraseña `Edison_Upm2026` y permisos solo sobre esa base.
 
 ### 3. Crear las tablas
 
