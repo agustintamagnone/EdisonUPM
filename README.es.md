@@ -73,19 +73,6 @@ Comprueba que responde:
 mysqladmin -u root -p ping   # -> mysqld is alive
 ```
 
-> Si `mysqld` falla con `Library not loaded: ... libabsl_...dylib`, la instalación de Homebrew quedó desfasada tras actualizar dependencias: ejecuta `brew reinstall mysql` (o `brew upgrade mysql`).
-
-> Si `brew services start mysql` dice que arrancó pero `mysqladmin` no conecta, revisa el log `/opt/homebrew/var/mysql/*.err`. Si aparece `Cannot upgrade from 80300 to ...`, Homebrew actualizó MySQL a una versión que no puede leer la carpeta de datos antigua. Si esa carpeta no tiene datos que necesites, apártala y crea una nueva:
->
-> ```bash
-> brew services stop mysql
-> mv /opt/homebrew/var/mysql /opt/homebrew/var/mysql.bak
-> mysqld --initialize-insecure --user=$(whoami) --datadir=/opt/homebrew/var/mysql
-> brew services start mysql
-> ```
->
-> (root queda sin contraseña; ejecuta `mysql_secure_installation` para definirla). Si necesitas conservar los datos, instala una versión compatible (p. ej. `brew install mysql@8.4` para datos de 8.3) en lugar de la última.
-
 #### Windows
 
 1. Descarga **MySQL Installer** desde <https://dev.mysql.com/downloads/installer/> (o, en PowerShell: `winget install Oracle.MySQL`).
