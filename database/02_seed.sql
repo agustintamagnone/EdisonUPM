@@ -1,6 +1,6 @@
 -- =============================================================
 -- Edison UPM - Sample data for local development
---   mysql -u edison -p edison_upm < database/02_seed.sql
+--   mysql --login-path=edison edison_upm < database/02_seed.sql
 -- Use these user ids in the X-User-Id header while there is no login.
 -- =============================================================
 

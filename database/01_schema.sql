@@ -1,6 +1,6 @@
 -- =============================================================
 -- Edison UPM - Schema (MVC Backend v2 model)
---   mysql -u edison -p edison_upm < database/01_schema.sql
+--   mysql --login-path=edison edison_upm < database/01_schema.sql
 -- Ids are UUIDs stored as CHAR(36). Dates are stored in UTC.
 -- =============================================================
 

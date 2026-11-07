@@ -1,7 +1,7 @@
 -- =============================================================
 -- Edison UPM - Database and application user
 -- Run ONCE as an administrator (root):
---   mysql -u root -p < database/00_create_database.sql
+--   mysql --login-path=edison-root < database/00_create_database.sql
 -- Change the password 'Edison_Upm2026' for anything other than local development.
 -- It meets MySQL's default password policy (validate_password MEDIUM).
 -- =============================================================

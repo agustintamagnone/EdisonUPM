@@ -108,34 +108,50 @@ docker run -d --name edison-mysql -p 3306:3306 -e MYSQL_ROOT_PASSWORD=root mysql
 
 Desde la raíz del repositorio.
 
+**Guarda las credenciales una sola vez.** Para que los scripts no pidan contraseña cada vez, guarda la contraseña de `root` con `mysql_config_editor` (viene con MySQL en macOS y Windows). Te la pide una vez y la guarda, ofuscada, en `~/.mylogin.cnf` (`%APPDATA%\MySQL\.mylogin.cnf` en Windows):
+
+```bash
+mysql_config_editor set --login-path=edison-root --user=root --password
+```
+
+(Si root no tiene contraseña, pulsa Enter.) A partir de ahí, `--login-path=edison-root` se conecta como root sin preguntar.
+
 **macOS:**
 
 ```bash
-mysql -u root -p < database/00_create_database.sql
+mysql --login-path=edison-root < database/00_create_database.sql
 ```
 
 **Windows (PowerShell):** PowerShell no admite la redirección `<`, así que se usa la opción `-e "source ..."` del cliente de MySQL:
 
 ```powershell
-mysql -u root -p -e "source database/00_create_database.sql"
+mysql --login-path=edison-root -e "source database/00_create_database.sql"
 ```
 
 > Alternativas en Windows: abrir **CMD** (`cmd.exe`) y usar el mismo comando que en macOS, o abrir el archivo `.sql` en **MySQL Workbench** y ejecutarlo con el rayo ⚡.
 
 Crea la base `edison_upm` (utf8mb4) y el usuario `edison`, con permisos solo sobre esa base. La contraseña del usuario está definida en `00_create_database.sql`.
 
+Ahora guarda también las credenciales del usuario `edison`, una sola vez (cuando te la pida, escribe la contraseña de `00_create_database.sql`):
+
+```bash
+mysql_config_editor set --login-path=edison --user=edison --password
+```
+
+> Para ver qué hay guardado: `mysql_config_editor print --all` (las contraseñas salen como `*****`). Para borrar una: `mysql_config_editor remove --login-path=edison`.
+
 ### 3. Crear las tablas
 
 **macOS:**
 
 ```bash
-mysql -u edison -p edison_upm < database/01_schema.sql
+mysql --login-path=edison edison_upm < database/01_schema.sql
 ```
 
 **Windows (PowerShell):**
 
 ```powershell
-mysql -u edison -p edison_upm -e "source database/01_schema.sql"
+mysql --login-path=edison edison_upm -e "source database/01_schema.sql"
 ```
 
 > ⚠️ Este script **borra y recrea** las tablas. Úsalo para inicializar, no sobre datos reales.
@@ -145,13 +161,13 @@ mysql -u edison -p edison_upm -e "source database/01_schema.sql"
 **macOS:**
 
 ```bash
-mysql -u edison -p edison_upm < database/02_seed.sql
+mysql --login-path=edison edison_upm < database/02_seed.sql
 ```
 
 **Windows (PowerShell):**
 
 ```powershell
-mysql -u edison -p edison_upm -e "source database/02_seed.sql"
+mysql --login-path=edison edison_upm -e "source database/02_seed.sql"
 ```
 
 Incluye usuarios de prueba (p. ej. estudiante `11111111-1111-1111-1111-111111111111`, profesor `33333333-3333-3333-3333-333333333333`), categorías, una idea publicada y un borrador.

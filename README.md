@@ -108,34 +108,50 @@ docker run -d --name edison-mysql -p 3306:3306 -e MYSQL_ROOT_PASSWORD=root mysql
 
 From the repository root.
 
+**Save the credentials once.** So that the scripts do not ask for a password every time, store the `root` password with `mysql_config_editor` (it ships with MySQL on macOS and Windows). It asks for the password once and saves it, obfuscated, in `~/.mylogin.cnf` (`%APPDATA%\MySQL\.mylogin.cnf` on Windows):
+
+```bash
+mysql_config_editor set --login-path=edison-root --user=root --password
+```
+
+(If root has no password, just press Enter.) From then on, `--login-path=edison-root` connects as root without asking.
+
 **macOS:**
 
 ```bash
-mysql -u root -p < database/00_create_database.sql
+mysql --login-path=edison-root < database/00_create_database.sql
 ```
 
 **Windows (PowerShell):** PowerShell does not support the `<` redirection, so use the MySQL client's `-e "source ..."` option:
 
 ```powershell
-mysql -u root -p -e "source database/00_create_database.sql"
+mysql --login-path=edison-root -e "source database/00_create_database.sql"
 ```
 
 > Windows alternatives: open **CMD** (`cmd.exe`) and use the same command as on macOS, or open the `.sql` file in **MySQL Workbench** and run it with the lightning bolt ⚡.
 
 This creates the `edison_upm` database (utf8mb4) and the user `edison`, with permissions on that database only. The user's password is set in `00_create_database.sql`.
 
+Now save the `edison` user's credentials once too (enter the password from `00_create_database.sql` when asked):
+
+```bash
+mysql_config_editor set --login-path=edison --user=edison --password
+```
+
+> To check what is saved: `mysql_config_editor print --all` (passwords are shown as `*****`). To delete one: `mysql_config_editor remove --login-path=edison`.
+
 ### 3. Create the tables
 
 **macOS:**
 
 ```bash
-mysql -u edison -p edison_upm < database/01_schema.sql
+mysql --login-path=edison edison_upm < database/01_schema.sql
 ```
 
 **Windows (PowerShell):**
 
 ```powershell
-mysql -u edison -p edison_upm -e "source database/01_schema.sql"
+mysql --login-path=edison edison_upm -e "source database/01_schema.sql"
 ```
 
 > ⚠️ This script **drops and recreates** the tables. Use it to initialize, not on real data.
@@ -145,13 +161,13 @@ mysql -u edison -p edison_upm -e "source database/01_schema.sql"
 **macOS:**
 
 ```bash
-mysql -u edison -p edison_upm < database/02_seed.sql
+mysql --login-path=edison edison_upm < database/02_seed.sql
 ```
 
 **Windows (PowerShell):**
 
 ```powershell
-mysql -u edison -p edison_upm -e "source database/02_seed.sql"
+mysql --login-path=edison edison_upm -e "source database/02_seed.sql"
 ```
 
 Includes test users (e.g. student `11111111-1111-1111-1111-111111111111`, professor `33333333-3333-3333-3333-333333333333`), categories, one published idea and one draft.
