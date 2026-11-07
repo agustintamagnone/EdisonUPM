@@ -53,7 +53,11 @@ Otros paquetes: `dto` (peticiones/respuestas JSON), `exception` (errores y `Glob
 
 ## Base de datos MySQL – guía paso a paso
 
-### 1. Instalar / arrancar MySQL (macOS con Homebrew)
+Cada paso tiene instrucciones para **macOS** y **Windows**. Los comandos de Windows están pensados para **PowerShell** (Terminal de Windows).
+
+### 1. Instalar / arrancar MySQL
+
+#### macOS (Homebrew)
 
 ```bash
 brew install mysql          # si no está instalado
@@ -69,7 +73,32 @@ mysqladmin -u root -p ping   # -> mysqld is alive
 
 > Si `mysqld` falla con `Library not loaded: ... libabsl_...dylib`, la instalación de Homebrew quedó desfasada tras actualizar dependencias: ejecuta `brew reinstall mysql` (o `brew upgrade mysql`).
 
-**Alternativa con Docker** (sin instalar MySQL):
+#### Windows
+
+1. Descarga **MySQL Installer** desde <https://dev.mysql.com/downloads/installer/> (o, en PowerShell: `winget install Oracle.MySQL`).
+2. En el instalador elige **Server only** (o *Custom* añadiendo también *MySQL Shell* / *Workbench* si quieres una interfaz gráfica).
+3. Durante la configuración:
+   - Puerto: **3306** (por defecto).
+   - Define la contraseña de **root** y apúntala.
+   - Deja marcado **Configure MySQL Server as a Windows Service** y **Start the MySQL Server at System Startup**: así MySQL arranca solo con Windows.
+4. Añade el cliente `mysql` al `PATH` para poder usarlo desde cualquier terminal (ajusta la versión a la que hayas instalado):
+
+   ```powershell
+   [Environment]::SetEnvironmentVariable("Path", $env:Path + ";C:\Program Files\MySQL\MySQL Server 8.4\bin", "User")
+   ```
+
+   Cierra y vuelve a abrir la terminal para que el cambio se aplique.
+
+Comprueba que el servicio está en marcha y que responde:
+
+```powershell
+Get-Service MySQL*            # Status debe ser "Running"
+mysqladmin -u root -p ping    # -> mysqld is alive
+```
+
+> Si el servicio está parado: `Start-Service MySQL84` (el nombre exacto aparece en `Get-Service MySQL*`), o desde *services.msc*.
+
+**Alternativa con Docker** (macOS y Windows con Docker Desktop, sin instalar MySQL):
 
 ```bash
 docker run -d --name edison-mysql -p 3306:3306 -e MYSQL_ROOT_PASSWORD=root mysql:8.4
@@ -77,26 +106,52 @@ docker run -d --name edison-mysql -p 3306:3306 -e MYSQL_ROOT_PASSWORD=root mysql
 
 ### 2. Crear la base de datos y el usuario de la aplicación
 
-Desde la raíz del repositorio:
+Desde la raíz del repositorio.
+
+**macOS:**
 
 ```bash
 mysql -u root -p < database/00_create_database.sql
 ```
 
+**Windows (PowerShell):** PowerShell no admite la redirección `<`, así que se usa la opción `-e "source ..."` del cliente de MySQL:
+
+```powershell
+mysql -u root -p -e "source database/00_create_database.sql"
+```
+
+> Alternativas en Windows: abrir **CMD** (`cmd.exe`) y usar el mismo comando que en macOS, o abrir el archivo `.sql` en **MySQL Workbench** y ejecutarlo con el rayo ⚡.
+
 Crea la base `edison_upm` (utf8mb4) y el usuario `edison` / contraseña `edison` con permisos solo sobre esa base.
 
 ### 3. Crear las tablas
 
+**macOS:**
+
 ```bash
 mysql -u edison -p edison_upm < database/01_schema.sql
+```
+
+**Windows (PowerShell):**
+
+```powershell
+mysql -u edison -p edison_upm -e "source database/01_schema.sql"
 ```
 
 > ⚠️ Este script **borra y recrea** las tablas. Úsalo para inicializar, no sobre datos reales.
 
 ### 4. (Opcional) Datos de ejemplo
 
+**macOS:**
+
 ```bash
 mysql -u edison -p edison_upm < database/02_seed.sql
+```
+
+**Windows (PowerShell):**
+
+```powershell
+mysql -u edison -p edison_upm -e "source database/02_seed.sql"
 ```
 
 Incluye usuarios de prueba (p. ej. estudiante `11111111-1111-1111-1111-111111111111`, profesor `33333333-3333-3333-3333-333333333333`), categorías, una idea publicada y un borrador.
@@ -105,8 +160,10 @@ Incluye usuarios de prueba (p. ej. estudiante `11111111-1111-1111-1111-111111111
 
 Por defecto el backend usa `jdbc:mysql://localhost:3306/edison_upm` con usuario/contraseña `edison`. Para usar otros valores, **sin subirlos a Git**:
 
-- Variables de entorno: `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, o
-- Copia `backend/src/main/resources/application-local.properties.example` a `application-local.properties` (está en `.gitignore`).
+- Variables de entorno: `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`. Para la terminal actual:
+  - macOS: `export DB_PASSWORD=mi-clave`
+  - Windows (PowerShell): `$env:DB_PASSWORD = "mi-clave"`
+- O bien, en ambos sistemas, copia `backend/src/main/resources/application-local.properties.example` a `application-local.properties` (está en `.gitignore`).
 
 Hibernate está en modo `validate`: al arrancar comprueba que las entidades coinciden con las tablas creadas por `01_schema.sql`, pero nunca las modifica.
 
@@ -114,7 +171,12 @@ Hibernate está en modo `validate`: al arrancar comprueba que las entidades coin
 
 ## Ejecutar el backend
 
-Requisitos: Java 21+ y Maven.
+Requisitos: **Java 21+** y **Maven**.
+
+- macOS: `brew install openjdk@21 maven`
+- Windows: `winget install Microsoft.OpenJDK.21` y Maven desde <https://maven.apache.org/download.cgi> (descomprime el zip y añade su carpeta `bin` al `PATH`, igual que con MySQL). Comprueba con `java -version` y `mvn -v` en una terminal nueva. IntelliJ IDEA trae Maven integrado, así que también puedes ejecutar el proyecto desde ahí.
+
+El comando es el mismo en macOS y Windows:
 
 ```bash
 cd backend
@@ -126,6 +188,8 @@ La API queda en `http://localhost:8080`. Prueba rápida:
 ```bash
 curl http://localhost:8080/api/ideas
 ```
+
+En Windows (PowerShell) también puedes usar `Invoke-RestMethod http://localhost:8080/api/ideas` o abrir la URL en el navegador.
 
 Las capturas subidas se guardan en `backend/storage/images` (configurable con `IMAGES_DIR`). El origen del frontend permitido por CORS se configura con `CORS_ALLOWED_ORIGINS` (por defecto `http://localhost:5173,http://localhost:3000`).
 
