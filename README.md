@@ -122,7 +122,7 @@ mysql -u root -p -e "source database/00_create_database.sql"
 
 > Windows alternatives: open **CMD** (`cmd.exe`) and use the same command as on macOS, or open the `.sql` file in **MySQL Workbench** and run it with the lightning bolt ⚡.
 
-This creates the `edison_upm` database (utf8mb4) and the user `edison` with password `Edison_Upm2026`, with permissions on that database only.
+This creates the `edison_upm` database (utf8mb4) and the user `edison`, with permissions on that database only. The user's password is set in `00_create_database.sql`.
 
 ### 3. Create the tables
 
@@ -158,7 +158,7 @@ Includes test users (e.g. student `11111111-1111-1111-1111-111111111111`, profes
 
 ### 5. Connect the backend
 
-By default the backend uses `jdbc:mysql://localhost:3306/edison_upm` with user `edison` and password `Edison_Upm2026`. To use other values, **without committing them to Git**:
+By default the backend uses `jdbc:mysql://localhost:3306/edison_upm` with the user `edison` and the password from `00_create_database.sql`. To use other values, **without committing them to Git**:
 
 - Environment variables: `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`. For the current terminal:
   - macOS: `export DB_PASSWORD=my-password`
