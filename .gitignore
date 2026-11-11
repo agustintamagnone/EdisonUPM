@@ -13,8 +13,8 @@ backend/src/main/resources/application-local.properties
 .env
 
 # Uploaded images (local Image Storage)
-backend/storage/
-storage/
+/backend/storage/
+/storage/
 
 # ---------- Java (GitHub template) ----------
 # Compiled class file
