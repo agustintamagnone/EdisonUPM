@@ -5,6 +5,6 @@ import es.upm.edison.model.IdeaTag;
 
 import java.util.Set;
 
-/** Wizard step 2 "MVP & proof": 1 or 2 tags and the development stage. */
+/** Wizard step 2 "MVP & proof": 1, 2 or 3 tags and the development stage. */
 public record IdeaClassificationRequest(Set<IdeaTag> tags, DevelopmentStage developmentStage) {
 }

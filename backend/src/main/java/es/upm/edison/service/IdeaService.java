@@ -38,7 +38,8 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Validates idea information, manages the publication process (DRAFT → PUBLISHED → ARCHIVED),
+ * Validates idea information, manages the publication process (DRAFT →
+ * PUBLISHED → ARCHIVED),
  * checks founder permissions and manages the MVP link.
  */
 @Service
@@ -48,7 +49,7 @@ public class IdeaService {
     static final int TITLE_MAX = 120;
     static final int ELEVATOR_PITCH_MAX = 300;
     static final int LONG_TEXT_MAX = 2000;
-    static final int MAX_TAGS = 2;
+    static final int MAX_TAGS = 3;
     static final int MVP_URL_MAX = 2048;
 
     /** Error groups match the steps of the publication wizard. */
@@ -61,8 +62,8 @@ public class IdeaService {
     private final AttachmentRepository attachmentRepository;
 
     public IdeaService(IdeaRepository ideaRepository,
-                       UserRepository userRepository,
-                       AttachmentRepository attachmentRepository) {
+            UserRepository userRepository,
+            AttachmentRepository attachmentRepository) {
         this.ideaRepository = ideaRepository;
         this.userRepository = userRepository;
         this.attachmentRepository = attachmentRepository;
@@ -185,7 +186,8 @@ public class IdeaService {
         if (request.visibility() == null) {
             reviewErrors.add("Select the visibility (PUBLIC or UPM_COMMUNITY)");
         }
-        Set<UserRole> allowedRoles = request.allowedCommenterRoles() == null ? Set.of() : request.allowedCommenterRoles();
+        Set<UserRole> allowedRoles = request.allowedCommenterRoles() == null ? Set.of()
+                : request.allowedCommenterRoles();
         if (request.feedbackEnabled() && allowedRoles.isEmpty()) {
             reviewErrors.add("Select at least one role allowed to comment, or disable feedback");
         }
@@ -194,7 +196,8 @@ public class IdeaService {
         }
         addIfAny(errors, STEP_REVIEW, reviewErrors);
 
-        // On error the idea stays DRAFT and the frontend reopens the first invalid step.
+        // On error the idea stays DRAFT and the frontend reopens the first invalid
+        // step.
         throwIfInvalid(errors);
 
         idea.setStatus(IdeaStatus.PUBLISHED);
@@ -221,7 +224,7 @@ public class IdeaService {
     // ---------- Validation helpers ----------
 
     private Map<String, List<String>> validateBasics(String title, String elevatorPitch,
-                                                     String problemStatement, String solutionDescription) {
+            String problemStatement, String solutionDescription) {
         List<String> errors = new ArrayList<>();
         requireText(errors, "Title", title, TITLE_MAX);
         requireText(errors, "Elevator pitch", elevatorPitch, ELEVATOR_PITCH_MAX);
@@ -232,8 +235,11 @@ public class IdeaService {
 
     private List<String> validateClassification(int tagCount, DevelopmentStage developmentStage) {
         List<String> errors = new ArrayList<>();
-        if (tagCount < 1 || tagCount > MAX_TAGS) {
-            errors.add("Select 1 or 2 tags");
+        if (tagCount < 1) {
+            errors.add("Select at least 1 tag");
+        }
+        if (tagCount > MAX_TAGS) {
+            errors.add("Select 1, 2 or 3 tags");
         }
         if (developmentStage == null) {
             errors.add("Development stage is required");
