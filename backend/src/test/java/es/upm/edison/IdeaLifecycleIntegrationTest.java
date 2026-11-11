@@ -1,10 +1,8 @@
 package es.upm.edison;
 
 import es.upm.edison.config.CurrentUser;
-import es.upm.edison.model.Category;
 import es.upm.edison.model.User;
 import es.upm.edison.model.UserRole;
-import es.upm.edison.repository.CategoryRepository;
 import es.upm.edison.repository.UserRepository;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,6 +19,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import java.util.UUID;
 
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -41,13 +40,10 @@ class IdeaLifecycleIntegrationTest {
     private MockMvc mvc;
     @Autowired
     private UserRepository userRepository;
-    @Autowired
-    private CategoryRepository categoryRepository;
 
     private User founder;
     private User otherStudent;
     private User professor;
-    private Category category;
 
     @BeforeEach
     void setUp() {
@@ -55,7 +51,6 @@ class IdeaLifecycleIntegrationTest {
         founder = userRepository.save(new User("Founder", "founder-" + suffix + "@upm.es", UserRole.STUDENT));
         otherStudent = userRepository.save(new User("Other", "other-" + suffix + "@upm.es", UserRole.STUDENT));
         professor = userRepository.save(new User("Prof", "prof-" + suffix + "@upm.es", UserRole.PROFESSOR));
-        category = categoryRepository.save(new Category("Category " + suffix));
     }
 
     @Test
@@ -86,11 +81,26 @@ class IdeaLifecycleIntegrationTest {
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.errors.mvpProof").isArray());
 
-        // Step 2: categories, stage, screenshot and MVP link
+        // Step 2: tags, stage, screenshot and MVP link
         mvc.perform(put("/api/ideas/{id}/classification", ideaId).header(CurrentUser.HEADER, founder.getId())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"categoryIds\":[\"" + category.getId() + "\"],\"developmentStage\":\"Prototype\"}"))
+                        .content("{\"tags\":[\"SOFTWARE\",\"GREEN_TECH\",\"HARDWARE\"],\"developmentStage\":\"PROTOTYPE\"}"))
+                .andExpect(status().isUnprocessableEntity());
+        mvc.perform(put("/api/ideas/{id}/classification", ideaId).header(CurrentUser.HEADER, founder.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tags\":[\"SOFTWARE\"],\"developmentStage\":\"FINISHED\"}"))
+                .andExpect(status().isBadRequest());
+        mvc.perform(put("/api/ideas/{id}/classification", ideaId).header(CurrentUser.HEADER, founder.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tags\":[\"SOFTWARE\",\"GREEN_TECH\"],\"developmentStage\":\"CONCEPT\"}"))
                 .andExpect(status().isOk());
+        // Changing the stage updates the existing idea_stage row
+        mvc.perform(put("/api/ideas/{id}/classification", ideaId).header(CurrentUser.HEADER, founder.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tags\":[\"SOFTWARE\",\"GREEN_TECH\"],\"developmentStage\":\"PROTOTYPE\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.developmentStage").value("PROTOTYPE"))
+                .andExpect(jsonPath("$.tags.length()").value(2));
 
         mvc.perform(multipart("/api/ideas/{id}/attachments", ideaId)
                         .file(new MockMultipartFile("file", "fake.png", "image/png", "not an image".getBytes()))
@@ -116,10 +126,16 @@ class IdeaLifecycleIntegrationTest {
                 .andExpect(jsonPath("$.status").value("PUBLISHED"))
                 .andExpect(jsonPath("$.screenshots.length()").value(1));
 
-        // Anonymous users can browse PUBLIC ideas and see the screenshot
+        // Anonymous users can browse PUBLIC ideas (by text and by tag) and see the screenshot
         mvc.perform(get("/api/ideas").param("q", "campus"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[*].id", hasItem(ideaId)));
+        mvc.perform(get("/api/ideas").param("tag", "GREEN_TECH"))
+                .andExpect(jsonPath("$.content[*].id", hasItem(ideaId)));
+        mvc.perform(get("/api/ideas").param("tag", "HEALTH_TECH"))
+                .andExpect(jsonPath("$.content[*].id", not(hasItem(ideaId))));
+        mvc.perform(get("/api/ideas/{id}", ideaId))
+                .andExpect(jsonPath("$.developmentStage").value("PROTOTYPE"));
         MvcResult attachments = mvc.perform(get("/api/ideas/{id}/attachments", ideaId))
                 .andExpect(status().isOk()).andReturn();
         String fileUrl = JsonPath.read(attachments.getResponse().getContentAsString(), "$[0].url");
@@ -180,7 +196,7 @@ class IdeaLifecycleIntegrationTest {
 
         mvc.perform(put("/api/ideas/{id}/classification", ideaId).header(CurrentUser.HEADER, founder.getId())
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"categoryIds\":[\"" + category.getId() + "\"],\"developmentStage\":\"Idea\"}"));
+                .content("{\"tags\":[\"ED_TECH\"],\"developmentStage\":\"CONCEPT\"}"));
         mvc.perform(post("/api/ideas/{id}/publish", ideaId).header(CurrentUser.HEADER, founder.getId())
                         .contentType(MediaType.APPLICATION_JSON).content("""
                                 {"feedbackEnabled":false,"allowedCommenterRoles":[],

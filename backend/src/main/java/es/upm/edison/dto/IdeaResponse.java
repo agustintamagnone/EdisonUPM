@@ -1,7 +1,9 @@
 package es.upm.edison.dto;
 
+import es.upm.edison.model.DevelopmentStage;
 import es.upm.edison.model.Idea;
 import es.upm.edison.model.IdeaStatus;
+import es.upm.edison.model.IdeaTag;
 import es.upm.edison.model.UserRole;
 import es.upm.edison.model.Visibility;
 
@@ -19,10 +21,10 @@ public record IdeaResponse(
         String mvpUrl,
         IdeaStatus status,
         Visibility visibility,
-        String developmentStage,
+        DevelopmentStage developmentStage,
         boolean feedbackEnabled,
         Set<UserRole> allowedCommenterRoles,
-        List<CategoryResponse> categories,
+        List<IdeaTag> tags,
         UserResponse founder,
         List<AttachmentResponse> screenshots,
         Instant createdAt,
@@ -41,7 +43,7 @@ public record IdeaResponse(
                 idea.getDevelopmentStage(),
                 idea.isFeedbackEnabled(),
                 Set.copyOf(idea.getAllowedCommenterRoles()),
-                idea.getCategories().stream().map(CategoryResponse::from).toList(),
+                idea.getTags().stream().sorted().toList(),
                 UserResponse.from(idea.getFounder()),
                 screenshots,
                 idea.getCreatedAt(),

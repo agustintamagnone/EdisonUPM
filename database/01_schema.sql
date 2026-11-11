@@ -9,8 +9,13 @@ DROP TABLE IF EXISTS saved_ideas;
 DROP TABLE IF EXISTS comments;
 DROP TABLE IF EXISTS attachments;
 DROP TABLE IF EXISTS idea_allowed_commenter_roles;
+DROP TABLE IF EXISTS idea_stage;
+DROP TABLE IF EXISTS idea_tags;
 DROP TABLE IF EXISTS ideas;
 DROP TABLE IF EXISTS users;
+-- Tables from the first version (categories were replaced by tags)
+DROP TABLE IF EXISTS idea_categories;
+DROP TABLE IF EXISTS categories;
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ---------- User ----------
@@ -24,14 +29,6 @@ CREATE TABLE users (
   CONSTRAINT ck_users_role CHECK (role IN ('STUDENT', 'PROFESSOR', 'ADMINISTRATOR', 'INVESTOR'))
 ) ENGINE = InnoDB;
 
--- ---------- Category ----------
-CREATE TABLE categories (
-  id    CHAR(36)    NOT NULL,
-  name  VARCHAR(60) NOT NULL,
-  PRIMARY KEY (id),
-  UNIQUE KEY uk_categories_name (name)
-) ENGINE = InnoDB;
-
 -- ---------- Idea ----------
 CREATE TABLE ideas (
   id                    CHAR(36)      NOT NULL,
@@ -43,7 +40,6 @@ CREATE TABLE ideas (
   mvp_url               VARCHAR(2048) NULL,
   status                VARCHAR(20)   NOT NULL DEFAULT 'DRAFT',
   visibility            VARCHAR(20)   NOT NULL DEFAULT 'PUBLIC',
-  development_stage     VARCHAR(60)   NULL,
   feedback_enabled      BOOLEAN       NOT NULL DEFAULT TRUE,
   created_at            DATETIME(6)   NOT NULL,
   published_at          DATETIME(6)   NULL,
@@ -55,21 +51,23 @@ CREATE TABLE ideas (
   CONSTRAINT ck_ideas_visibility CHECK (visibility IN ('PUBLIC', 'UPM_COMMUNITY'))
 ) ENGINE = InnoDB;
 
+-- Idea.tags : Set<IdeaTag> (1..2 tags, checked by IdeaService when publishing)
 CREATE TABLE idea_tags (
-    idea_id CHAR(36)    NOT NULL,
-    tag VARCHAR (20)    NOT NULL,
-    PRIMARY KEY (idea_id, tag),
-    CONSTRAINT fk_tags_idea FOREIGN KEY (idea_id) REFERENCES ideas (id) ON DELETE CASCADE,
-    CONSTRAINT ck_tags_status CHECK (tag IN ('GREEN_TECH', 'SOFTWARE', 'HARDWARE', 'HEALTH_TECH', 'ED_TECH', 'CIRCULAR_ECONOMY'))
-);
+  idea_id  CHAR(36)    NOT NULL,
+  tag      VARCHAR(20) NOT NULL,
+  PRIMARY KEY (idea_id, tag),
+  CONSTRAINT fk_tags_idea FOREIGN KEY (idea_id) REFERENCES ideas (id) ON DELETE CASCADE,
+  CONSTRAINT ck_tags_status CHECK (tag IN ('GREEN_TECH', 'SOFTWARE', 'HARDWARE', 'HEALTH_TECH', 'ED_TECH', 'CIRCULAR_ECONOMY'))
+) ENGINE = InnoDB;
 
+-- Idea.developmentStage : DevelopmentStage (one stage per idea; no row until the founder picks it)
 CREATE TABLE idea_stage (
-   idea_id CHAR(36)    NOT NULL,
-   stage VARCHAR (20)    NOT NULL,
-   PRIMARY KEY (idea_id, stage),
-   CONSTRAINT fk_stage_idea FOREIGN KEY (idea_id) REFERENCES ideas (id) ON DELETE CASCADE,
-   CONSTRAINT ck_stage_status CHECK (stage IN ('CONCEPT', 'PROTOTYPE', 'MVP_LIVE'))
-);
+  idea_id  CHAR(36)    NOT NULL,
+  stage    VARCHAR(20) NOT NULL,
+  PRIMARY KEY (idea_id),
+  CONSTRAINT fk_stage_idea FOREIGN KEY (idea_id) REFERENCES ideas (id) ON DELETE CASCADE,
+  CONSTRAINT ck_stage_status CHECK (stage IN ('CONCEPT', 'PROTOTYPE', 'MVP_LIVE'))
+) ENGINE = InnoDB;
 
 -- Idea.allowedCommenterRoles : Set<UserRole>
 CREATE TABLE idea_allowed_commenter_roles (

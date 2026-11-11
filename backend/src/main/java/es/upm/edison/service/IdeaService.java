@@ -1,7 +1,6 @@
 package es.upm.edison.service;
 
 import es.upm.edison.dto.AttachmentResponse;
-import es.upm.edison.dto.CategoryResponse;
 import es.upm.edison.dto.IdeaBasicsRequest;
 import es.upm.edison.dto.IdeaClassificationRequest;
 import es.upm.edison.dto.IdeaResponse;
@@ -11,14 +10,14 @@ import es.upm.edison.dto.PageResponse;
 import es.upm.edison.dto.PublishIdeaRequest;
 import es.upm.edison.exception.ForbiddenException;
 import es.upm.edison.exception.ValidationException;
-import es.upm.edison.model.Category;
+import es.upm.edison.model.DevelopmentStage;
 import es.upm.edison.model.Idea;
 import es.upm.edison.model.IdeaStatus;
+import es.upm.edison.model.IdeaTag;
 import es.upm.edison.model.User;
 import es.upm.edison.model.UserRole;
 import es.upm.edison.model.Visibility;
 import es.upm.edison.repository.AttachmentRepository;
-import es.upm.edison.repository.CategoryRepository;
 import es.upm.edison.repository.IdeaRepository;
 import es.upm.edison.repository.UserRepository;
 import org.springframework.data.domain.PageRequest;
@@ -30,7 +29,8 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -48,8 +48,7 @@ public class IdeaService {
     static final int TITLE_MAX = 120;
     static final int ELEVATOR_PITCH_MAX = 300;
     static final int LONG_TEXT_MAX = 2000;
-    static final int DEVELOPMENT_STAGE_MAX = 60;
-    static final int MAX_CATEGORIES = 2;
+    static final int MAX_TAGS = 2;
     static final int MVP_URL_MAX = 2048;
 
     /** Error groups match the steps of the publication wizard. */
@@ -58,29 +57,29 @@ public class IdeaService {
     static final String STEP_REVIEW = "review";
 
     private final IdeaRepository ideaRepository;
-    private final CategoryRepository categoryRepository;
     private final UserRepository userRepository;
     private final AttachmentRepository attachmentRepository;
 
     public IdeaService(IdeaRepository ideaRepository,
-                       CategoryRepository categoryRepository,
                        UserRepository userRepository,
                        AttachmentRepository attachmentRepository) {
         this.ideaRepository = ideaRepository;
-        this.categoryRepository = categoryRepository;
         this.userRepository = userRepository;
         this.attachmentRepository = attachmentRepository;
     }
 
     // ---------- Browse and search ----------
 
-    @Transactional(readOnly = true)
-    public List<CategoryResponse> getCategories() {
-        return categoryRepository.findAllByOrderByNameAsc().stream().map(CategoryResponse::from).toList();
+    public List<IdeaTag> getTags() {
+        return Arrays.asList(IdeaTag.values());
+    }
+
+    public List<DevelopmentStage> getDevelopmentStages() {
+        return Arrays.asList(DevelopmentStage.values());
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<IdeaSummaryResponse> browse(UUID currentUserId, String query, UUID categoryId, int page, int size) {
+    public PageResponse<IdeaSummaryResponse> browse(UUID currentUserId, String query, IdeaTag tag, int page, int size) {
         User viewer = userRepository.findCurrent(currentUserId).orElse(null);
         Set<Visibility> visibilities = Idea.isUpmCommunityMember(viewer)
                 ? Set.of(Visibility.PUBLIC, Visibility.UPM_COMMUNITY)
@@ -89,7 +88,7 @@ public class IdeaService {
         PageRequest pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 50),
                 Sort.by(Sort.Direction.DESC, "publishedAt"));
         return PageResponse.from(
-                ideaRepository.search(IdeaStatus.PUBLISHED, visibilities, categoryId, normalizedQuery, pageable),
+                ideaRepository.search(IdeaStatus.PUBLISHED, visibilities, tag, normalizedQuery, pageable),
                 IdeaSummaryResponse::from);
     }
 
@@ -138,19 +137,15 @@ public class IdeaService {
 
     public IdeaResponse updateClassification(UUID ideaId, UUID currentUserId, IdeaClassificationRequest request) {
         Idea idea = IdeaAccess.loadOwnDraft(ideaRepository, ideaId, userRepository.requireCurrent(currentUserId));
-        Set<UUID> categoryIds = request.categoryIds() == null ? Set.of() : request.categoryIds();
+        Set<IdeaTag> tags = request.tags() == null ? Set.of() : request.tags();
 
-        List<String> errors = new ArrayList<>(validateClassification(categoryIds.size(), request.developmentStage()));
-        List<Category> categories = categoryRepository.findAllById(categoryIds);
-        if (categories.size() != categoryIds.size()) {
-            errors.add("One or more categories do not exist");
-        }
+        List<String> errors = validateClassification(tags.size(), request.developmentStage());
         if (!errors.isEmpty()) {
             throw new ValidationException(Map.of(STEP_MVP_PROOF, errors));
         }
 
-        idea.setCategories(new HashSet<>(categories));
-        idea.setDevelopmentStage(request.developmentStage().trim());
+        idea.setTags(tags.isEmpty() ? EnumSet.noneOf(IdeaTag.class) : EnumSet.copyOf(tags));
+        idea.setDevelopmentStage(request.developmentStage());
         return toResponse(idea);
     }
 
@@ -180,7 +175,7 @@ public class IdeaService {
                 idea.getProblemStatement(), idea.getSolutionDescription()));
 
         List<String> mvpErrors = new ArrayList<>(
-                validateClassification(idea.getCategories().size(), idea.getDevelopmentStage()));
+                validateClassification(idea.getTags().size(), idea.getDevelopmentStage()));
         if (attachmentRepository.countByIdeaId(idea.getId()) > AttachmentService.MAX_SCREENSHOTS) {
             mvpErrors.add("An idea can have at most " + AttachmentService.MAX_SCREENSHOTS + " screenshots");
         }
@@ -235,12 +230,14 @@ public class IdeaService {
         return errors.isEmpty() ? Map.of() : Map.of(STEP_BASICS, errors);
     }
 
-    private List<String> validateClassification(int categoryCount, String developmentStage) {
+    private List<String> validateClassification(int tagCount, DevelopmentStage developmentStage) {
         List<String> errors = new ArrayList<>();
-        if (categoryCount < 1 || categoryCount > MAX_CATEGORIES) {
-            errors.add("Select 1 or 2 categories");
+        if (tagCount < 1 || tagCount > MAX_TAGS) {
+            errors.add("Select 1 or 2 tags");
         }
-        requireText(errors, "Development stage", developmentStage, DEVELOPMENT_STAGE_MAX);
+        if (developmentStage == null) {
+            errors.add("Development stage is required");
+        }
         return errors;
     }
 

@@ -1,7 +1,9 @@
 package es.upm.edison.dto;
 
+import es.upm.edison.model.DevelopmentStage;
 import es.upm.edison.model.Idea;
 import es.upm.edison.model.IdeaStatus;
+import es.upm.edison.model.IdeaTag;
 import es.upm.edison.model.Visibility;
 
 import java.time.Instant;
@@ -15,8 +17,8 @@ public record IdeaSummaryResponse(
         String elevatorPitch,
         IdeaStatus status,
         Visibility visibility,
-        String developmentStage,
-        List<CategoryResponse> categories,
+        DevelopmentStage developmentStage,
+        List<IdeaTag> tags,
         UserResponse founder,
         Instant createdAt,
         Instant publishedAt) {
@@ -29,7 +31,7 @@ public record IdeaSummaryResponse(
                 idea.getStatus(),
                 idea.getVisibility(),
                 idea.getDevelopmentStage(),
-                idea.getCategories().stream().map(CategoryResponse::from).toList(),
+                idea.getTags().stream().sorted().toList(),
                 UserResponse.from(idea.getFounder()),
                 idea.getCreatedAt(),
                 idea.getPublishedAt());

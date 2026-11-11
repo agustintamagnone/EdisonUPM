@@ -20,8 +20,8 @@ Follows the **MVC Backend (v2)** diagram. Root package `es.upm.edison`:
 | View | — | Frontend (web client, calls the API over HTTP/JSON) |
 | Controller | `controller` | `IdeaController`, `AttachmentController`, `CommentController`, `UserController` |
 | Service | `service` | `IdeaService`, `AttachmentService`, `CommentService`, `UserService` |
-| Repository | `repository` | `IdeaRepository` (+ `CategoryRepository`, `SavedIdeaRepository`), `AttachmentRepository`, `CommentRepository`, `UserRepository` |
-| Model | `model` | `User`, `Idea`, `Category`, `Attachment`, `Comment`, `SavedIdea`, enums `UserRole`, `IdeaStatus`, `Visibility`, `CommentStatus` |
+| Repository | `repository` | `IdeaRepository` (+ `SavedIdeaRepository`), `AttachmentRepository`, `CommentRepository`, `UserRepository` |
+| Model | `model` | `User`, `Idea`, `Attachment`, `Comment`, `SavedIdea`, enums `UserRole`, `IdeaStatus`, `Visibility`, `IdeaTag`, `DevelopmentStage`, `CommentStatus` |
 | Infrastructure | `service.storage` | `ImageStorage` / `FileSystemImageStorage` (Image Storage) + MySQL (Relational Database) |
 
 Other packages: `dto` (JSON requests/responses), `exception` (errors and `GlobalExceptionHandler`), `config` (CORS, current user).
@@ -30,13 +30,14 @@ Other packages: `dto` (JSON requests/responses), `exception` (errors and `Global
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/categories` | Categories |
-| GET | `/api/ideas?q=&categoryId=&page=&size=` | Browse/search published ideas |
+| GET | `/api/tags` | Available tags (`GREEN_TECH`, `SOFTWARE`, `HARDWARE`, `HEALTH_TECH`, `ED_TECH`, `CIRCULAR_ECONOMY`) |
+| GET | `/api/development-stages` | Available stages (`CONCEPT`, `PROTOTYPE`, `MVP_LIVE`) |
+| GET | `/api/ideas?q=&tag=&page=&size=` | Browse/search published ideas |
 | GET | `/api/ideas/mine` | My ideas |
 | GET | `/api/ideas/{id}` | Idea details |
 | POST | `/api/ideas` | Step 1 – create draft (Basics) |
 | PUT | `/api/ideas/{id}/basics` | Step 1 – edit Basics |
-| PUT | `/api/ideas/{id}/classification` | Step 2 – categories (1-2) and stage |
+| PUT | `/api/ideas/{id}/classification` | Step 2 – tags (1-2) and development stage |
 | PUT / DELETE | `/api/ideas/{id}/mvp-link` | Step 2 – MVP link |
 | POST | `/api/ideas/{id}/publish` | Step 3 – publish (errors grouped by step: `basics`, `mvpProof`, `review`) |
 | POST | `/api/ideas/{id}/archive` | Archive |
@@ -170,7 +171,7 @@ mysql --login-path=edison edison_upm < database/02_seed.sql
 mysql --login-path=edison edison_upm -e "source database/02_seed.sql"
 ```
 
-Includes test users (e.g. student `11111111-1111-1111-1111-111111111111`, professor `33333333-3333-3333-3333-333333333333`), categories, one published idea and one draft.
+Includes test users (e.g. student `11111111-1111-1111-1111-111111111111`, professor `33333333-3333-3333-3333-333333333333`), one published idea and one draft, with their tags and stage.
 
 ### 5. Connect the backend
 
