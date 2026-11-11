@@ -1,8 +1,10 @@
 package es.upm.edison.dto;
 
-import java.util.Set;
-import java.util.UUID;
+import es.upm.edison.model.DevelopmentStage;
+import es.upm.edison.model.IdeaTag;
 
-/** Wizard step 2 "MVP & proof": 1 or 2 categories and the development stage. */
-public record IdeaClassificationRequest(Set<UUID> categoryIds, String developmentStage) {
+import java.util.Set;
+
+/** Wizard step 2 "MVP & proof": 1 or 2 tags and the development stage. */
+public record IdeaClassificationRequest(Set<IdeaTag> tags, DevelopmentStage developmentStage) {
 }

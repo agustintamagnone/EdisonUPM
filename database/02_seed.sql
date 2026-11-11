@@ -13,18 +13,18 @@ INSERT INTO users (id, full_name, email, role) VALUES
 
 -- One published idea with a comment, and one draft
 INSERT INTO ideas (id, founder_id, title, elevator_pitch, problem_statement, solution_description,
-                   mvp_url, status, visibility, development_stage, feedback_enabled, created_at, published_at) VALUES
+                   mvp_url, status, visibility, feedback_enabled, created_at, published_at) VALUES
   ('a0000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
    'CampusShare', 'Share bikes and scooters between UPM campuses.',
    'Moving between UPM campuses is slow and expensive for students.',
    'A booking app for shared bikes and scooters with stations on every campus.',
-   'https://example.com/campusshare', 'PUBLISHED', 'PUBLIC', 'Prototype', TRUE,
+   'https://example.com/campusshare', 'PUBLISHED', 'PUBLIC', TRUE,
    UTC_TIMESTAMP(6), UTC_TIMESTAMP(6)),
   ('a0000000-0000-0000-0000-000000000002', '22222222-2222-2222-2222-222222222222',
    'StudyBuddy AI', 'An AI tutor trained on UPM course material.',
    'Students lack personalised help outside office hours.',
    'A chat assistant that answers questions using the course notes.',
-   NULL, 'DRAFT', 'PUBLIC', NULL, TRUE, UTC_TIMESTAMP(6), NULL);
+   NULL, 'DRAFT', 'PUBLIC', TRUE, UTC_TIMESTAMP(6), NULL);
 
 INSERT INTO idea_tags (idea_id, tag) VALUES
   ('a0000000-0000-0000-0000-000000000001', 'SOFTWARE'),
@@ -32,9 +32,8 @@ INSERT INTO idea_tags (idea_id, tag) VALUES
   ('a0000000-0000-0000-0000-000000000002', 'GREEN_TECH');
 
 INSERT INTO idea_stage (idea_id, stage) VALUES
-('a0000000-0000-0000-0000-000000000001', 'PROTOTYPE'),
-('a0000000-0000-0000-0000-000000000002', 'CONCEPT');
-
+  ('a0000000-0000-0000-0000-000000000001', 'PROTOTYPE'),
+  ('a0000000-0000-0000-0000-000000000002', 'CONCEPT');
 
 INSERT INTO idea_allowed_commenter_roles (idea_id, role) VALUES
   ('a0000000-0000-0000-0000-000000000001', 'STUDENT'),

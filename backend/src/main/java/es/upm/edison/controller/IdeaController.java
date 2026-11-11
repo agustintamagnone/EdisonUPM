@@ -1,7 +1,6 @@
 package es.upm.edison.controller;
 
 import es.upm.edison.config.CurrentUser;
-import es.upm.edison.dto.CategoryResponse;
 import es.upm.edison.dto.IdeaBasicsRequest;
 import es.upm.edison.dto.IdeaClassificationRequest;
 import es.upm.edison.dto.IdeaResponse;
@@ -9,6 +8,8 @@ import es.upm.edison.dto.IdeaSummaryResponse;
 import es.upm.edison.dto.MvpLinkRequest;
 import es.upm.edison.dto.PageResponse;
 import es.upm.edison.dto.PublishIdeaRequest;
+import es.upm.edison.model.DevelopmentStage;
+import es.upm.edison.model.IdeaTag;
 import es.upm.edison.service.IdeaService;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -39,18 +40,23 @@ public class IdeaController {
 
     // ---------- Browse and search ----------
 
-    @GetMapping("/categories")
-    public List<CategoryResponse> getCategories() {
-        return ideaService.getCategories();
+    @GetMapping("/tags")
+    public List<IdeaTag> getTags() {
+        return ideaService.getTags();
+    }
+
+    @GetMapping("/development-stages")
+    public List<DevelopmentStage> getDevelopmentStages() {
+        return ideaService.getDevelopmentStages();
     }
 
     @GetMapping("/ideas")
     public PageResponse<IdeaSummaryResponse> browse(@RequestHeader(value = CurrentUser.HEADER, required = false) UUID userId,
                                                     @RequestParam(required = false) String q,
-                                                    @RequestParam(required = false) UUID categoryId,
+                                                    @RequestParam(required = false) IdeaTag tag,
                                                     @RequestParam(defaultValue = "0") int page,
                                                     @RequestParam(defaultValue = "12") int size) {
-        return ideaService.browse(userId, q, categoryId, page, size);
+        return ideaService.browse(userId, q, tag, page, size);
     }
 
     @GetMapping("/ideas/mine")

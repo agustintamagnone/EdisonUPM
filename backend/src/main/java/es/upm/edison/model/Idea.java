@@ -11,8 +11,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.JoinTable;
-import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -20,7 +18,6 @@ import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.EnumSet;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
@@ -60,8 +57,16 @@ public class Idea {
     @Column(nullable = false, length = 20)
     private Visibility visibility = Visibility.PUBLIC;
 
-    @Column(name = "development_stage", length = 60)
-    private String developmentStage;
+    /**
+     * Development stage, stored in its own table (idea_stage, one row per idea).
+     * Mapped as a collection with at most one element; use {@link #getDevelopmentStage()}.
+     */
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "idea_stage", joinColumns = @JoinColumn(name = "idea_id"))
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "stage", nullable = false, length = 20)
+    private Set<DevelopmentStage> stage = EnumSet.noneOf(DevelopmentStage.class);
 
     @Column(name = "feedback_enabled", nullable = false)
     private boolean feedbackEnabled = true;
@@ -73,12 +78,13 @@ public class Idea {
     @Column(name = "role", nullable = false, length = 20)
     private Set<UserRole> allowedCommenterRoles = EnumSet.allOf(UserRole.class);
 
-    /** 1..2 categories (enforced when publishing). */
-    @ManyToMany(fetch = FetchType.EAGER)
-    @JoinTable(name = "idea_categories",
-            joinColumns = @JoinColumn(name = "idea_id"),
-            inverseJoinColumns = @JoinColumn(name = "category_id"))
-    private Set<Category> categories = new HashSet<>();
+    /** 1..2 tags (enforced when publishing). */
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "idea_tags", joinColumns = @JoinColumn(name = "idea_id"))
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "tag", nullable = false, length = 20)
+    private Set<IdeaTag> tags = EnumSet.noneOf(IdeaTag.class);
 
     @ManyToOne(optional = false, fetch = FetchType.EAGER)
     @JoinColumn(name = "founder_id", nullable = false)
@@ -138,8 +144,15 @@ public class Idea {
     public void setStatus(IdeaStatus status) { this.status = status; }
     public Visibility getVisibility() { return visibility; }
     public void setVisibility(Visibility visibility) { this.visibility = visibility; }
-    public String getDevelopmentStage() { return developmentStage; }
-    public void setDevelopmentStage(String developmentStage) { this.developmentStage = developmentStage; }
+    public DevelopmentStage getDevelopmentStage() {
+        return stage.isEmpty() ? null : stage.iterator().next();
+    }
+    public void setDevelopmentStage(DevelopmentStage developmentStage) {
+        this.stage.clear();
+        if (developmentStage != null) {
+            this.stage.add(developmentStage);
+        }
+    }
     public boolean isFeedbackEnabled() { return feedbackEnabled; }
     public void setFeedbackEnabled(boolean feedbackEnabled) { this.feedbackEnabled = feedbackEnabled; }
     public Set<UserRole> getAllowedCommenterRoles() { return allowedCommenterRoles; }
@@ -147,10 +160,10 @@ public class Idea {
         this.allowedCommenterRoles.clear();
         this.allowedCommenterRoles.addAll(roles);
     }
-    public Set<Category> getCategories() { return categories; }
-    public void setCategories(Set<Category> categories) {
-        this.categories.clear();
-        this.categories.addAll(categories);
+    public Set<IdeaTag> getTags() { return tags; }
+    public void setTags(Set<IdeaTag> tags) {
+        this.tags.clear();
+        this.tags.addAll(tags);
     }
     public User getFounder() { return founder; }
     public Instant getCreatedAt() { return createdAt; }
