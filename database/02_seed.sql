@@ -11,15 +11,6 @@ INSERT INTO users (id, full_name, email, role) VALUES
   ('44444444-4444-4444-4444-444444444444', 'Admin Edison',  'admin.edison@upm.es',         'ADMINISTRATOR'),
   ('55555555-5555-5555-5555-555555555555', 'Javier Ortega', 'javier.ortega@example.com',   'INVESTOR');
 
-INSERT INTO categories (id, name) VALUES
-  ('c0000000-0000-0000-0000-000000000001', 'Education'),
-  ('c0000000-0000-0000-0000-000000000002', 'Health'),
-  ('c0000000-0000-0000-0000-000000000003', 'Sustainability'),
-  ('c0000000-0000-0000-0000-000000000004', 'Mobility'),
-  ('c0000000-0000-0000-0000-000000000005', 'FinTech'),
-  ('c0000000-0000-0000-0000-000000000006', 'Artificial Intelligence'),
-  ('c0000000-0000-0000-0000-000000000007', 'Social Impact');
-
 -- One published idea with a comment, and one draft
 INSERT INTO ideas (id, founder_id, title, elevator_pitch, problem_statement, solution_description,
                    mvp_url, status, visibility, development_stage, feedback_enabled, created_at, published_at) VALUES
@@ -35,9 +26,15 @@ INSERT INTO ideas (id, founder_id, title, elevator_pitch, problem_statement, sol
    'A chat assistant that answers questions using the course notes.',
    NULL, 'DRAFT', 'PUBLIC', NULL, TRUE, UTC_TIMESTAMP(6), NULL);
 
-INSERT INTO idea_categories (idea_id, category_id) VALUES
-  ('a0000000-0000-0000-0000-000000000001', 'c0000000-0000-0000-0000-000000000003'),
-  ('a0000000-0000-0000-0000-000000000001', 'c0000000-0000-0000-0000-000000000004');
+INSERT INTO idea_tags (idea_id, tag) VALUES
+  ('a0000000-0000-0000-0000-000000000001', 'SOFTWARE'),
+  ('a0000000-0000-0000-0000-000000000002', 'HARDWARE'),
+  ('a0000000-0000-0000-0000-000000000002', 'GREEN_TECH');
+
+INSERT INTO idea_stage (idea_id, stage) VALUES
+('a0000000-0000-0000-0000-000000000001', 'PROTOTYPE'),
+('a0000000-0000-0000-0000-000000000002', 'CONCEPT');
+
 
 INSERT INTO idea_allowed_commenter_roles (idea_id, role) VALUES
   ('a0000000-0000-0000-0000-000000000001', 'STUDENT'),

@@ -8,10 +8,8 @@ SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS saved_ideas;
 DROP TABLE IF EXISTS comments;
 DROP TABLE IF EXISTS attachments;
-DROP TABLE IF EXISTS idea_categories;
 DROP TABLE IF EXISTS idea_allowed_commenter_roles;
 DROP TABLE IF EXISTS ideas;
-DROP TABLE IF EXISTS categories;
 DROP TABLE IF EXISTS users;
 SET FOREIGN_KEY_CHECKS = 1;
 
@@ -57,6 +55,22 @@ CREATE TABLE ideas (
   CONSTRAINT ck_ideas_visibility CHECK (visibility IN ('PUBLIC', 'UPM_COMMUNITY'))
 ) ENGINE = InnoDB;
 
+CREATE TABLE idea_tags (
+    idea_id CHAR(36)    NOT NULL,
+    tag VARCHAR (20)    NOT NULL,
+    PRIMARY KEY (idea_id, tag),
+    CONSTRAINT fk_tags_idea FOREIGN KEY (idea_id) REFERENCES ideas (id) ON DELETE CASCADE,
+    CONSTRAINT ck_tags_status CHECK (tag IN ('GREEN_TECH', 'SOFTWARE', 'HARDWARE', 'HEALTH_TECH', 'ED_TECH', 'CIRCULAR_ECONOMY'))
+);
+
+CREATE TABLE idea_stage (
+   idea_id CHAR(36)    NOT NULL,
+   stage VARCHAR (20)    NOT NULL,
+   PRIMARY KEY (idea_id, stage),
+   CONSTRAINT fk_stage_idea FOREIGN KEY (idea_id) REFERENCES ideas (id) ON DELETE CASCADE,
+   CONSTRAINT ck_stage_status CHECK (stage IN ('CONCEPT', 'PROTOTYPE', 'MVP_LIVE'))
+);
+
 -- Idea.allowedCommenterRoles : Set<UserRole>
 CREATE TABLE idea_allowed_commenter_roles (
   idea_id  CHAR(36)    NOT NULL,
@@ -64,16 +78,6 @@ CREATE TABLE idea_allowed_commenter_roles (
   PRIMARY KEY (idea_id, role),
   CONSTRAINT fk_allowed_roles_idea FOREIGN KEY (idea_id) REFERENCES ideas (id) ON DELETE CASCADE,
   CONSTRAINT ck_allowed_roles_role CHECK (role IN ('STUDENT', 'PROFESSOR', 'ADMINISTRATOR', 'INVESTOR'))
-) ENGINE = InnoDB;
-
--- Idea "0..*" -> "1..2" Category (the 1..2 rule is checked by IdeaService when publishing)
-CREATE TABLE idea_categories (
-  idea_id      CHAR(36) NOT NULL,
-  category_id  CHAR(36) NOT NULL,
-  PRIMARY KEY (idea_id, category_id),
-  KEY idx_idea_categories_category (category_id),
-  CONSTRAINT fk_idea_categories_idea FOREIGN KEY (idea_id) REFERENCES ideas (id) ON DELETE CASCADE,
-  CONSTRAINT fk_idea_categories_category FOREIGN KEY (category_id) REFERENCES categories (id)
 ) ENGINE = InnoDB;
 
 -- ---------- Attachment (screenshots, 0..5 per idea) ----------
