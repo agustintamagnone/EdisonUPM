@@ -78,7 +78,7 @@ public class Idea {
     @Column(name = "role", nullable = false, length = 20)
     private Set<UserRole> allowedCommenterRoles = EnumSet.allOf(UserRole.class);
 
-    /** 1..2 tags (enforced when publishing). */
+    /** 1..3 tags (enforced when publishing). */
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "idea_tags", joinColumns = @JoinColumn(name = "idea_id"))
     @Enumerated(EnumType.STRING)
