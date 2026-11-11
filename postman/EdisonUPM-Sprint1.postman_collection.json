@@ -1,0 +1,1160 @@
+{
+  "info": {
+    "_postman_id": "cf93a976-8bff-52e3-b0be-dfafe4588835",
+    "name": "EdisonUPM - Sprint 1",
+    "description": "REST API of the EdisonUPM backend (Spring Boot, branch main).\n\n**Identity (temporary):** there is no login yet. Requests that need a user send the header `X-User-Id` with a user UUID from `database/02_seed.sql`. No header = anonymous visitor.\n\n**Folder A** is the Sprint 1 smoke test (8 requests with automated checks). **Folder B** documents every other endpoint.\n\n**Status codes:** 200/201/204 success; 400 malformed JSON or invalid value; 401 missing or unknown X-User-Id; 403 not allowed (wrong role or not the owner); 404 not found or not visible; 413 file over 5 MB; 422 validation error with `errors` grouped by field or wizard step.\n\nSee `postman/README.md`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "A - Sprint 1 Smoke Test",
+      "description": "Run these 8 requests **in order** (Collection Runner, this folder only). Each request saves the ids it creates into the selected environment, so the next one can use them.\n\nRequest 1 resets `ideaId`, `attachmentId`, `commentId` and creates a new `runTag`, so the folder can be rerun as often as you like.\n\nRequest 3 uploads `fixtures/edison-smoke-test.png`. If Postman cannot find it, open request 3, go to **Body → form-data → file** and select any small PNG image.",
+      "item": [
+        {
+          "name": "1. Create idea draft",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{founderId}}",
+                "type": "text",
+                "description": "Temporary identity header: the UUID of the acting user (see database/02_seed.sql)."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/ideas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ideas"
+              ]
+            },
+            "description": "Wizard step 1 (Basics). Only users with role STUDENT can create ideas. The idea starts as DRAFT.\n\nSaves `ideaId`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Smoke test idea {{runTag}}\",\n  \"elevatorPitch\": \"A quick idea created by the Sprint 1 Postman smoke test.\",\n  \"problemStatement\": \"The team needs a repeatable way to check the Sprint 1 workflow.\",\n  \"solutionDescription\": \"Run the eight smoke-test requests in order against a disposable database.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Fresh values for every run, so the smoke test can be rerun on the same database.",
+                  "pm.environment.set('runTag', 'SMOKE-' + Date.now());",
+                  "['ideaId', 'attachmentId', 'attachmentUrl', 'attachmentSize', 'commentId', 'clientRequestId']",
+                  "    .forEach(key => pm.environment.set(key, ''));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;",
+                  "pm.test('Environment \"EdisonUPM Local\" is selected', () => pm.expect(pm.environment.name, 'select the EdisonUPM Local environment').to.be.ok);",
+                  "pm.test('Status is 201 Created', () => pm.response.to.have.status(201));",
+                  "const idea = pm.response.json();",
+                  "pm.test('Response has the required idea fields', () => {",
+                  "    pm.expect(idea).to.include.all.keys('id', 'title', 'elevatorPitch', 'problemStatement', 'solutionDescription', 'status', 'founder', 'screenshots', 'createdAt');",
+                  "});",
+                  "pm.test('Idea id is a UUID', () => pm.expect(idea.id).to.match(UUID));",
+                  "pm.test('New idea is a DRAFT', () => pm.expect(idea.status).to.eql('DRAFT'));",
+                  "pm.test('Title was saved', () => pm.expect(idea.title).to.eql('Smoke test idea ' + pm.environment.get('runTag')));",
+                  "pm.test('Founder is the founderId user', () => pm.expect(idea.founder.id).to.eql(pm.variables.get('founderId')));",
+                  "if (idea.id) { pm.environment.set('ideaId', idea.id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2. Set tags and development stage",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{founderId}}",
+                "type": "text",
+                "description": "Temporary identity header: the UUID of the acting user (see database/02_seed.sql)."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/ideas/{{ideaId}}/classification",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ideas",
+                "{{ideaId}}",
+                "classification"
+              ]
+            },
+            "description": "Wizard step 2. `tags`: 1 to 3 values from GET /api/tags. `developmentStage`: one value from GET /api/development-stages.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tags\": [\n    \"SOFTWARE\",\n    \"ED_TECH\"\n  ],\n  \"developmentStage\": \"PROTOTYPE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "const idea = pm.response.json();",
+                  "pm.test('Same idea was updated', () => pm.expect(idea.id).to.eql(pm.environment.get('ideaId')));",
+                  "pm.test('Tags were saved', () => pm.expect(idea.tags).to.have.members(['SOFTWARE', 'ED_TECH']));",
+                  "pm.test('Development stage was saved', () => pm.expect(idea.developmentStage).to.eql('PROTOTYPE'));",
+                  "pm.test('Idea is still a DRAFT', () => pm.expect(idea.status).to.eql('DRAFT'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3. Upload screenshot",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{founderId}}",
+                "type": "text",
+                "description": "Temporary identity header: the UUID of the acting user (see database/02_seed.sql)."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/ideas/{{ideaId}}/attachments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ideas",
+                "{{ideaId}}",
+                "attachments"
+              ]
+            },
+            "description": "multipart/form-data with one field named `file`. PNG, JPG or WebP, max 5 MB, max 5 per idea, draft ideas only. Postman sets the Content-Type header automatically.\n\nSaves `attachmentId`.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "fixtures/edison-smoke-test.png",
+                  "description": "Select a small PNG image if this path is not found."
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;",
+                  "pm.test('Status is 201 Created', () => pm.response.to.have.status(201));",
+                  "const a = pm.response.json();",
+                  "const ideaId = pm.environment.get('ideaId');",
+                  "pm.test('Response has the required attachment fields', () => {",
+                  "    pm.expect(a).to.include.all.keys('id', 'fileName', 'contentType', 'sizeBytes', 'displayOrder', 'url', 'uploadedAt');",
+                  "});",
+                  "pm.test('Attachment id is a UUID', () => pm.expect(a.id).to.match(UUID));",
+                  "pm.test('Stored as a PNG image', () => pm.expect(a.contentType).to.eql('image/png'));",
+                  "pm.test('File is not empty', () => pm.expect(a.sizeBytes).to.be.above(0));",
+                  "pm.test('First screenshot of the idea', () => pm.expect(a.displayOrder).to.eql(0));",
+                  "pm.test('Download URL belongs to this idea', () => pm.expect(a.url).to.eql('/api/ideas/' + ideaId + '/attachments/' + a.id + '/file'));",
+                  "if (a.id) {",
+                  "    pm.environment.set('attachmentId', a.id);",
+                  "    pm.environment.set('attachmentUrl', a.url);",
+                  "    pm.environment.set('attachmentSize', String(a.sizeBytes));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4. Publish idea",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{founderId}}",
+                "type": "text",
+                "description": "Temporary identity header: the UUID of the acting user (see database/02_seed.sql)."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/ideas/{{ideaId}}/publish",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ideas",
+                "{{ideaId}}",
+                "publish"
+              ]
+            },
+            "description": "Wizard step 3. Checks every step again; on failure returns 422 with errors grouped as `basics`, `mvpProof` and `review`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"feedbackEnabled\": true,\n  \"allowedCommenterRoles\": [\n    \"STUDENT\",\n    \"PROFESSOR\"\n  ],\n  \"visibility\": \"PUBLIC\",\n  \"declarationAccepted\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "const idea = pm.response.json();",
+                  "pm.test('Same idea was published', () => pm.expect(idea.id).to.eql(pm.environment.get('ideaId')));",
+                  "pm.test('Status is PUBLISHED', () => pm.expect(idea.status).to.eql('PUBLISHED'));",
+                  "pm.test('publishedAt is set', () => pm.expect(idea.publishedAt).to.be.a('string').and.not.empty);",
+                  "pm.test('Visibility is PUBLIC', () => pm.expect(idea.visibility).to.eql('PUBLIC'));",
+                  "pm.test('Students may comment', () => {",
+                  "    pm.expect(idea.feedbackEnabled).to.eql(true);",
+                  "    pm.expect(idea.allowedCommenterRoles).to.include('STUDENT');",
+                  "});",
+                  "pm.test('Uploaded screenshot is attached', () => {",
+                  "    pm.expect(idea.screenshots.map(s => s.id)).to.include(pm.environment.get('attachmentId'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5. Browse published ideas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/ideas?q={{runTag}}&size=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ideas"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "{{runTag}}"
+                },
+                {
+                  "key": "size",
+                  "value": "50"
+                }
+              ]
+            },
+            "description": "Sent without X-User-Id, like a visitor who is not logged in: only PUBLIC ideas are returned. `q` filters by this run's tag so the new idea is always on the first page."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "const page = pm.response.json();",
+                  "pm.test('Response is a page of ideas', () => {",
+                  "    pm.expect(page).to.include.all.keys('content', 'page', 'size', 'totalElements', 'totalPages');",
+                  "    pm.expect(page.content).to.be.an('array');",
+                  "});",
+                  "const found = page.content.find(i => i.id === pm.environment.get('ideaId'));",
+                  "pm.test('Published idea appears in the public list', () => pm.expect(found, 'idea not found in GET /api/ideas').to.exist);",
+                  "pm.test('Listed idea is PUBLISHED with its tags and stage', () => {",
+                  "    pm.expect(found.status).to.eql('PUBLISHED');",
+                  "    pm.expect(found.tags).to.have.members(['SOFTWARE', 'ED_TECH']);",
+                  "    pm.expect(found.developmentStage).to.eql('PROTOTYPE');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6. Download screenshot",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/ideas/{{ideaId}}/attachments/{{attachmentId}}/file",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ideas",
+                "{{ideaId}}",
+                "attachments",
+                "{{attachmentId}}",
+                "file"
+              ]
+            },
+            "description": "Returns the image bytes. Postman shows the picture in the response panel."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Content-Type is image/png', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('image/png'));",
+                  "pm.test('Browser MIME sniffing is disabled', () => pm.expect(pm.response.headers.get('X-Content-Type-Options')).to.eql('nosniff'));",
+                  "const bytes = pm.response.stream;",
+                  "pm.test('Body is a real PNG file', () => {",
+                  "    pm.expect(bytes.length).to.be.above(8);",
+                  "    pm.expect([bytes[0], bytes[1], bytes[2], bytes[3]]).to.eql([0x89, 0x50, 0x4E, 0x47]);",
+                  "});",
+                  "pm.test('Same size as the uploaded file', () => pm.expect(bytes.length).to.eql(Number(pm.environment.get('attachmentSize'))));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7. Create comment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{commenterId}}",
+                "type": "text",
+                "description": "Temporary identity header: the UUID of the acting user (see database/02_seed.sql)."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/ideas/{{ideaId}}/comments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ideas",
+                "{{ideaId}}",
+                "comments"
+              ]
+            },
+            "description": "Posted by a different student (`commenterId`). `clientRequestId` is optional: resending the same value returns the comment already created instead of a duplicate. The pre-request script generates a new one each run.\n\nSaves `commentId`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Smoke test comment for {{runTag}} - looks promising\",\n  \"clientRequestId\": \"{{clientRequestId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// A new clientRequestId on every run, so the API never returns an older comment.",
+                  "pm.environment.set('clientRequestId', pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;",
+                  "pm.test('Status is 201 Created', () => pm.response.to.have.status(201));",
+                  "const c = pm.response.json();",
+                  "pm.test('Response has the required comment fields', () => {",
+                  "    pm.expect(c).to.include.all.keys('id', 'ideaId', 'author', 'content', 'createdAt');",
+                  "});",
+                  "pm.test('Comment id is a UUID', () => pm.expect(c.id).to.match(UUID));",
+                  "pm.test('Comment belongs to the idea', () => pm.expect(c.ideaId).to.eql(pm.environment.get('ideaId')));",
+                  "pm.test('Author is the commenterId user', () => pm.expect(c.author.id).to.eql(pm.variables.get('commenterId')));",
+                  "pm.test('Content was saved', () => pm.expect(c.content).to.eql('Smoke test comment for ' + pm.environment.get('runTag') + ' - looks promising'));",
+                  "if (c.id) { pm.environment.set('commentId', c.id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8. List comments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/ideas/{{ideaId}}/comments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ideas",
+                "{{ideaId}}",
+                "comments"
+              ]
+            },
+            "description": "Visible comments, newest first, plus `count`. Sent without X-User-Id (public idea)."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Response has count and comments', () => {",
+                  "    pm.expect(body.count).to.be.a('number');",
+                  "    pm.expect(body.comments).to.be.an('array');",
+                  "    pm.expect(body.count).to.eql(body.comments.length);",
+                  "});",
+                  "const c = body.comments.find(x => x.id === pm.environment.get('commentId'));",
+                  "pm.test('New comment is listed', () => pm.expect(c, 'comment not found').to.exist);",
+                  "pm.test('Listed comment is linked to the idea and the commenter', () => {",
+                  "    pm.expect(c.ideaId).to.eql(pm.environment.get('ideaId'));",
+                  "    pm.expect(c.author.id).to.eql(pm.variables.get('commenterId'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "B - Complete API Reference",
+      "description": "Every other endpoint implemented in the controllers (`backend/src/main/java/es/upm/edison/controller`). These requests have no automated tests; they document the request format and the responses the code can return. They use the ids saved by folder A. Some of them change data (archive, delete): use a disposable database.",
+      "item": [
+        {
+          "name": "Reference data",
+          "description": "Fixed lists used by the publication wizard.",
+          "item": [
+            {
+              "name": "List tags",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/tags",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "tags"
+                  ]
+                },
+                "description": "All idea tags (enum IdeaTag).\n\n**Possible responses**\n- 200 `[\"GREEN_TECH\", \"SOFTWARE\", ...]`\n\nErrors use the body `{timestamp, status, message, errors}`."
+              },
+              "response": []
+            },
+            {
+              "name": "List development stages",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/development-stages",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "development-stages"
+                  ]
+                },
+                "description": "All stages (enum DevelopmentStage).\n\n**Possible responses**\n- 200 `[\"CONCEPT\", \"PROTOTYPE\", \"MVP_LIVE\"]`\n\nErrors use the body `{timestamp, status, message, errors}`."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Ideas",
+          "description": "IdeaController + IdeaService.",
+          "item": [
+            {
+              "name": "Browse ideas with filters",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "X-User-Id",
+                    "value": "{{founderId}}",
+                    "type": "text",
+                    "description": "Temporary identity header: the UUID of the acting user (see database/02_seed.sql).",
+                    "disabled": true
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/ideas?q=campus&tag=SOFTWARE&page=0&size=12",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "ideas"
+                  ],
+                  "query": [
+                    {
+                      "key": "q",
+                      "value": "campus",
+                      "description": "Text in title or elevator pitch"
+                    },
+                    {
+                      "key": "tag",
+                      "value": "SOFTWARE",
+                      "description": "One tag from GET /api/tags"
+                    },
+                    {
+                      "key": "page",
+                      "value": "0"
+                    },
+                    {
+                      "key": "size",
+                      "value": "12"
+                    }
+                  ]
+                },
+                "description": "Same endpoint as smoke request 5, showing every filter. Anonymous users see PUBLIC ideas; STUDENT and PROFESSOR users (X-User-Id) also see UPM_COMMUNITY ideas. Sorted by publishedAt, newest first. `page` starts at 0; `size` 1-50 (default 12).\n\n**Possible responses**\n- 200 page `{content: [IdeaSummary], page, size, totalElements, totalPages}`\n- 400 unknown `tag` value\n\nErrors use the body `{timestamp, status, message, errors}`."
+              },
+              "response": []
+            },
+            {
+              "name": "My ideas",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "X-User-Id",
+                    "value": "{{founderId}}",
+                    "type": "text",
+                    "description": "Temporary identity header: the UUID of the acting user (see database/02_seed.sql)."
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/ideas/mine",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "ideas",
+                    "mine"
+                  ]
+                },
+                "description": "All ideas of the current user, any status, newest first.\n\n**Possible responses**\n- 200 `[IdeaSummary]`\n- 401 missing or unknown X-User-Id\n\nErrors use the body `{timestamp, status, message, errors}`."
+              },
+              "response": []
+            },
+            {
+              "name": "Idea details",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "X-User-Id",
+                    "value": "{{founderId}}",
+                    "type": "text",
+                    "description": "Temporary identity header: the UUID of the acting user (see database/02_seed.sql)."
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/ideas/{{ideaId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "ideas",
+                    "{{ideaId}}"
+                  ]
+                },
+                "description": "Full idea including screenshots. Founders also see their own drafts.\n\n**Possible responses**\n- 200 Idea\n- 401 UPM_COMMUNITY idea requested without X-User-Id\n- 404 idea does not exist or is not visible to this user\n- 400 id is not a UUID\n\nErrors use the body `{timestamp, status, message, errors}`."
+              },
+              "response": []
+            },
+            {
+              "name": "Edit basics (draft)",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "X-User-Id",
+                    "value": "{{founderId}}",
+                    "type": "text",
+                    "description": "Temporary identity header: the UUID of the acting user (see database/02_seed.sql)."
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/ideas/{{ideaId}}/basics",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "ideas",
+                    "{{ideaId}}",
+                    "basics"
+                  ]
+                },
+                "description": "Wizard step 1 again. Same body as smoke request 1. Only the founder, only while DRAFT.\n\n**Possible responses**\n- 200 Idea\n- 401 not logged in\n- 403 not the founder\n- 404 idea not found\n- 422 `errors.basics` (required, max 120/300/2000 characters) or idea is not a DRAFT\n\nErrors use the body `{timestamp, status, message, errors}`.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"New title\",\n  \"elevatorPitch\": \"One sentence pitch\",\n  \"problemStatement\": \"The problem\",\n  \"solutionDescription\": \"The solution\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Set MVP link (draft)",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "X-User-Id",
+                    "value": "{{founderId}}",
+                    "type": "text",
+                    "description": "Temporary identity header: the UUID of the acting user (see database/02_seed.sql)."
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/ideas/{{ideaId}}/mvp-link",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "ideas",
+                    "{{ideaId}}",
+                    "mvp-link"
+                  ]
+                },
+                "description": "Optional external link to the MVP. Must be http or https with a host, max 2048 characters.\n\n**Possible responses**\n- 200 Idea\n- 422 `errors.mvpUrl` invalid link or idea is not a DRAFT\n- 401\n- 403\n- 404\n\nErrors use the body `{timestamp, status, message, errors}`.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"mvpUrl\": \"https://example.com/my-mvp\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Remove MVP link (draft)",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "X-User-Id",
+                    "value": "{{founderId}}",
+                    "type": "text",
+                    "description": "Temporary identity header: the UUID of the acting user (see database/02_seed.sql)."
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/ideas/{{ideaId}}/mvp-link",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "ideas",
+                    "{{ideaId}}",
+                    "mvp-link"
+                  ]
+                },
+                "description": "Clears the MVP link.\n\n**Possible responses**\n- 200 Idea\n- 422 idea is not a DRAFT\n- 401\n- 403\n- 404\n\nErrors use the body `{timestamp, status, message, errors}`."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Attachments",
+          "description": "AttachmentController + AttachmentService + FileSystemImageStorage.",
+          "item": [
+            {
+              "name": "List screenshots",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/ideas/{{ideaId}}/attachments",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "ideas",
+                    "{{ideaId}}",
+                    "attachments"
+                  ]
+                },
+                "description": "Screenshots in display order. Each `url` points to the download endpoint.\n\n**Possible responses**\n- 200 `[{id, fileName, contentType, sizeBytes, displayOrder, url, uploadedAt}]`\n- 401 UPM_COMMUNITY idea without X-User-Id\n- 404 idea not visible\n\nErrors use the body `{timestamp, status, message, errors}`."
+              },
+              "response": []
+            },
+            {
+              "name": "Delete screenshot (draft)",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "X-User-Id",
+                    "value": "{{founderId}}",
+                    "type": "text",
+                    "description": "Temporary identity header: the UUID of the acting user (see database/02_seed.sql)."
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/ideas/{{ideaId}}/attachments/{{attachmentId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "ideas",
+                    "{{ideaId}}",
+                    "attachments",
+                    "{{attachmentId}}"
+                  ]
+                },
+                "description": "Founder only, draft only. The remaining screenshots are renumbered 0, 1, 2...\n\n**Possible responses**\n- 204 deleted\n- 403 not the founder\n- 404 screenshot not found\n- 422 idea is not a DRAFT\n- 401\n\nErrors use the body `{timestamp, status, message, errors}`."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Comments",
+          "description": "CommentController + CommentService. Comments are only possible on PUBLISHED ideas.",
+          "item": [
+            {
+              "name": "Edit own comment",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "X-User-Id",
+                    "value": "{{commenterId}}",
+                    "type": "text",
+                    "description": "Temporary identity header: the UUID of the acting user (see database/02_seed.sql)."
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/comments/{{commentId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "comments",
+                    "{{commentId}}"
+                  ]
+                },
+                "description": "Only the author. Same validation as creation: 1-500 characters after trimming, links only http/https.\n\n**Possible responses**\n- 200 Comment with `updatedAt`\n- 403 not the author\n- 404 comment not found or deleted\n- 422 `errors.content`\n- 401\n\nErrors use the body `{timestamp, status, message, errors}`.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"content\": \"Edited comment\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Delete own comment",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "X-User-Id",
+                    "value": "{{commenterId}}",
+                    "type": "text",
+                    "description": "Temporary identity header: the UUID of the acting user (see database/02_seed.sql)."
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/comments/{{commentId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "comments",
+                    "{{commentId}}"
+                  ]
+                },
+                "description": "Only the author. Soft delete: the row stays in MySQL with status DELETED and disappears from the list.\n\n**Possible responses**\n- 204 deleted\n- 403 not the author\n- 404 comment not found or already deleted\n- 401\n\nErrors use the body `{timestamp, status, message, errors}`."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Users and saved ideas",
+          "description": "UserController + UserService. There is no sign-up or login endpoint yet; users come from database/02_seed.sql.",
+          "item": [
+            {
+              "name": "My profile",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "X-User-Id",
+                    "value": "{{founderId}}",
+                    "type": "text",
+                    "description": "Temporary identity header: the UUID of the acting user (see database/02_seed.sql)."
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/users/me",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "users",
+                    "me"
+                  ]
+                },
+                "description": "The user identified by X-User-Id.\n\n**Possible responses**\n- 200 `{id, fullName, email, role}`\n- 401 missing or unknown X-User-Id\n\nErrors use the body `{timestamp, status, message, errors}`."
+              },
+              "response": []
+            },
+            {
+              "name": "Update my profile",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "X-User-Id",
+                    "value": "{{founderId}}",
+                    "type": "text",
+                    "description": "Temporary identity header: the UUID of the acting user (see database/02_seed.sql)."
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/users/me",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "users",
+                    "me"
+                  ]
+                },
+                "description": "Only `fullName` can change (1-120 characters).\n\n**Possible responses**\n- 200 User\n- 400 `errors.fullName` blank or too long\n- 401\n\nErrors use the body `{timestamp, status, message, errors}`.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"fullName\": \"Lucia Martin\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "My saved ideas",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "X-User-Id",
+                    "value": "{{commenterId}}",
+                    "type": "text",
+                    "description": "Temporary identity header: the UUID of the acting user (see database/02_seed.sql)."
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/users/me/saved-ideas",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "users",
+                    "me",
+                    "saved-ideas"
+                  ]
+                },
+                "description": "Bookmarked ideas still visible to the user, newest first.\n\n**Possible responses**\n- 200 `[IdeaSummary]`\n- 401\n\nErrors use the body `{timestamp, status, message, errors}`."
+              },
+              "response": []
+            },
+            {
+              "name": "Save idea",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "X-User-Id",
+                    "value": "{{commenterId}}",
+                    "type": "text",
+                    "description": "Temporary identity header: the UUID of the acting user (see database/02_seed.sql)."
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/users/me/saved-ideas/{{ideaId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "users",
+                    "me",
+                    "saved-ideas",
+                    "{{ideaId}}"
+                  ]
+                },
+                "description": "Bookmark a PUBLISHED idea. Saving twice keeps one bookmark.\n\n**Possible responses**\n- 204 saved\n- 404 idea not visible\n- 422 idea is not PUBLISHED\n- 401\n\nErrors use the body `{timestamp, status, message, errors}`."
+              },
+              "response": []
+            },
+            {
+              "name": "Unsave idea",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "X-User-Id",
+                    "value": "{{commenterId}}",
+                    "type": "text",
+                    "description": "Temporary identity header: the UUID of the acting user (see database/02_seed.sql)."
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/users/me/saved-ideas/{{ideaId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "users",
+                    "me",
+                    "saved-ideas",
+                    "{{ideaId}}"
+                  ]
+                },
+                "description": "Remove a bookmark.\n\n**Possible responses**\n- 204 removed\n- 401\n\nErrors use the body `{timestamp, status, message, errors}`."
+              },
+              "response": []
+            },
+            {
+              "name": "Founders",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/users/founders",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "users",
+                    "founders"
+                  ]
+                },
+                "description": "Users with at least one PUBLISHED idea, by name.\n\n**Possible responses**\n- 200 `[User]`\n\nErrors use the body `{timestamp, status, message, errors}`."
+              },
+              "response": []
+            },
+            {
+              "name": "Mentors",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/users/mentors",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "users",
+                    "mentors"
+                  ]
+                },
+                "description": "Users with role PROFESSOR, by name.\n\n**Possible responses**\n- 200 `[User]`\n\nErrors use the body `{timestamp, status, message, errors}`."
+              },
+              "response": []
+            },
+            {
+              "name": "User profile",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/users/{{founderId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "users",
+                    "{{founderId}}"
+                  ]
+                },
+                "description": "Any user's public profile.\n\n**Possible responses**\n- 200 User\n- 404 user not found\n- 400 id is not a UUID\n\nErrors use the body `{timestamp, status, message, errors}`."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Archive (run last)",
+          "description": "Kept last because an archived idea is hidden from everyone except its founder.",
+          "item": [
+            {
+              "name": "Archive idea",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "X-User-Id",
+                    "value": "{{founderId}}",
+                    "type": "text",
+                    "description": "Temporary identity header: the UUID of the acting user (see database/02_seed.sql)."
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/ideas/{{ideaId}}/archive",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "ideas",
+                    "{{ideaId}}",
+                    "archive"
+                  ]
+                },
+                "description": "Founder only. Works on DRAFT or PUBLISHED ideas. Archived ideas are hidden from everyone except the founder.\n\n**Possible responses**\n- 200 Idea with status ARCHIVED\n- 403 not the founder\n- 422 already archived\n- 401\n- 404\n\nErrors use the body `{timestamp, status, message, errors}`."
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "description": "Fallback if no environment is selected"
+    },
+    {
+      "key": "founderId",
+      "value": "11111111-1111-1111-1111-111111111111",
+      "description": "Seed student Lucia Martin"
+    },
+    {
+      "key": "commenterId",
+      "value": "22222222-2222-2222-2222-222222222222",
+      "description": "Seed student Carlos Ruiz"
+    }
+  ]
+}
