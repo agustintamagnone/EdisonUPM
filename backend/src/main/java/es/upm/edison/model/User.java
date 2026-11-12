@@ -29,6 +29,9 @@ public class User {
     @Column(nullable = false, unique = true, length = 254)
     private String email;
 
+    @Column(name = "password_hash", nullable = false, length = 60)
+    private String passwordHash;
+
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(nullable = false, length = 20)
@@ -37,10 +40,11 @@ public class User {
     protected User() {
     }
 
-    public User(String fullName, String email, UserRole role) {
+    public User(String fullName, String email, UserRole role, String passwordHash) {
         this.fullName = fullName;
         this.email = email;
         this.role = role;
+        this.passwordHash = passwordHash;
     }
 
     public UUID getId() { return id; }
@@ -49,5 +53,5 @@ public class User {
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
     public UserRole getRole() { return role; }
-    public void setRole(UserRole role) { this.role = role; }
+    public String getPasswordHash() { return passwordHash; }
 }

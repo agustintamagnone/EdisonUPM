@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
+import java.security.Principal;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -34,35 +34,35 @@ public class UserController {
     // ---------- Own profile ----------
 
     @GetMapping("/me")
-    public UserResponse getMe(@RequestHeader(value = CurrentUser.HEADER, required = false) UUID userId) {
-        return userService.getMe(userId);
+    public UserResponse getMe(Principal principal) {
+        return userService.getMe(CurrentUser.id(principal));
     }
 
     @PutMapping("/me")
-    public UserResponse updateMe(@RequestHeader(value = CurrentUser.HEADER, required = false) UUID userId,
+    public UserResponse updateMe(Principal principal,
                                  @Valid @RequestBody UpdateProfileRequest request) {
-        return userService.updateMe(userId, request);
+        return userService.updateMe(CurrentUser.id(principal), request);
     }
 
     // ---------- Saved ideas ----------
 
     @GetMapping("/me/saved-ideas")
-    public List<IdeaSummaryResponse> getSavedIdeas(@RequestHeader(value = CurrentUser.HEADER, required = false) UUID userId) {
-        return userService.getSavedIdeas(userId);
+    public List<IdeaSummaryResponse> getSavedIdeas(Principal principal) {
+        return userService.getSavedIdeas(CurrentUser.id(principal));
     }
 
     @PutMapping("/me/saved-ideas/{ideaId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void saveIdea(@RequestHeader(value = CurrentUser.HEADER, required = false) UUID userId,
+    public void saveIdea(Principal principal,
                          @PathVariable UUID ideaId) {
-        userService.saveIdea(userId, ideaId);
+        userService.saveIdea(CurrentUser.id(principal), ideaId);
     }
 
     @DeleteMapping("/me/saved-ideas/{ideaId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void unsaveIdea(@RequestHeader(value = CurrentUser.HEADER, required = false) UUID userId,
+    public void unsaveIdea(Principal principal,
                            @PathVariable UUID ideaId) {
-        userService.unsaveIdea(userId, ideaId);
+        userService.unsaveIdea(CurrentUser.id(principal), ideaId);
     }
 
     // ---------- Founders, mentors and profiles ----------
