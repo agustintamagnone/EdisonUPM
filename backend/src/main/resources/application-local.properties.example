@@ -2,3 +2,6 @@
 spring.datasource.url=jdbc:mysql://localhost:3306/edison_upm?serverTimezone=UTC&useSSL=false&allowPublicKeyRetrieval=true
 spring.datasource.username=edison
 spring.datasource.password=change-me
+
+# HTTPS only; leave false for HTTP localhost.
+# server.servlet.session.cookie.secure=true

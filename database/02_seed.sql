@@ -1,15 +1,15 @@
 -- =============================================================
 -- Edison UPM - Sample data for local development
 --   mysql --login-path=edison edison_upm < database/02_seed.sql
--- Use these user ids in the X-User-Id header while there is no login.
+-- Fictional demonstration accounts only. Demo password: EdisonDemo2026!
 -- =============================================================
 
-INSERT INTO users (id, full_name, email, role) VALUES
-  ('11111111-1111-1111-1111-111111111111', 'Lucia Martin',  'lucia.martin@alumnos.upm.es', 'STUDENT'),
-  ('22222222-2222-2222-2222-222222222222', 'Carlos Ruiz',   'carlos.ruiz@alumnos.upm.es',  'STUDENT'),
-  ('33333333-3333-3333-3333-333333333333', 'Elena Gomez',   'elena.gomez@upm.es',          'PROFESSOR'),
-  ('44444444-4444-4444-4444-444444444444', 'Admin Edison',  'admin.edison@upm.es',         'ADMINISTRATOR'),
-  ('55555555-5555-5555-5555-555555555555', 'Javier Ortega', 'javier.ortega@example.com',   'INVESTOR');
+INSERT INTO users (id, full_name, email, role, password_hash) VALUES
+  ('11111111-1111-1111-1111-111111111111', 'Lucia Martin',  'lucia.martin@alumnos.upm.es', 'STUDENT', '$2a$10$PDYn7y.lkCZahYv8TXpueuadGTy/1bvCQsT0MfC6rafEpiUIm.87y'),
+  ('22222222-2222-2222-2222-222222222222', 'Carlos Ruiz',   'carlos.ruiz@alumnos.upm.es',  'STUDENT', '$2a$10$PDYn7y.lkCZahYv8TXpueuadGTy/1bvCQsT0MfC6rafEpiUIm.87y'),
+  ('33333333-3333-3333-3333-333333333333', 'Elena Gomez',   'elena.gomez@upm.es',          'PROFESSOR', '$2a$10$PDYn7y.lkCZahYv8TXpueuadGTy/1bvCQsT0MfC6rafEpiUIm.87y'),
+  ('44444444-4444-4444-4444-444444444444', 'Admin Edison',  'admin.edison@upm.es',         'ADMINISTRATOR', '$2a$10$PDYn7y.lkCZahYv8TXpueuadGTy/1bvCQsT0MfC6rafEpiUIm.87y'),
+  ('55555555-5555-5555-5555-555555555555', 'Javier Ortega', 'javier.ortega@example.com',   'INVESTOR', '$2a$10$PDYn7y.lkCZahYv8TXpueuadGTy/1bvCQsT0MfC6rafEpiUIm.87y');
 
 -- One published idea with a comment, and one draft
 INSERT INTO ideas (id, founder_id, title, elevator_pitch, problem_statement, solution_description,

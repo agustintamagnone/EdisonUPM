@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
+import java.security.Principal;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -35,32 +35,32 @@ public class AttachmentController {
     }
 
     @GetMapping
-    public List<AttachmentResponse> list(@RequestHeader(value = CurrentUser.HEADER, required = false) UUID userId,
+    public List<AttachmentResponse> list(Principal principal,
                                          @PathVariable UUID ideaId) {
-        return attachmentService.list(ideaId, userId);
+        return attachmentService.list(ideaId, CurrentUser.id(principal));
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
-    public AttachmentResponse upload(@RequestHeader(value = CurrentUser.HEADER, required = false) UUID userId,
+    public AttachmentResponse upload(Principal principal,
                                      @PathVariable UUID ideaId,
                                      @RequestParam("file") MultipartFile file) {
-        return attachmentService.upload(ideaId, userId, file);
+        return attachmentService.upload(ideaId, CurrentUser.id(principal), file);
     }
 
     @DeleteMapping("/{attachmentId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void remove(@RequestHeader(value = CurrentUser.HEADER, required = false) UUID userId,
+    public void remove(Principal principal,
                        @PathVariable UUID ideaId,
                        @PathVariable UUID attachmentId) {
-        attachmentService.remove(ideaId, attachmentId, userId);
+        attachmentService.remove(ideaId, attachmentId, CurrentUser.id(principal));
     }
 
     @GetMapping("/{attachmentId}/file")
-    public ResponseEntity<Resource> serveFile(@RequestHeader(value = CurrentUser.HEADER, required = false) UUID userId,
+    public ResponseEntity<Resource> serveFile(Principal principal,
                                               @PathVariable UUID ideaId,
                                               @PathVariable UUID attachmentId) {
-        AttachmentService.StoredImage image = attachmentService.loadFile(ideaId, attachmentId, userId);
+        AttachmentService.StoredImage image = attachmentService.loadFile(ideaId, attachmentId, CurrentUser.id(principal));
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(image.contentType()))
                 .header(HttpHeaders.CONTENT_DISPOSITION,

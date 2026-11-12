@@ -23,6 +23,7 @@ CREATE TABLE users (
   id         CHAR(36)     NOT NULL,
   full_name  VARCHAR(120) NOT NULL,
   email      VARCHAR(254) NOT NULL,
+  password_hash VARCHAR(60) NOT NULL,
   role       VARCHAR(20)  NOT NULL,
   PRIMARY KEY (id),
   UNIQUE KEY uk_users_email (email),
@@ -51,7 +52,7 @@ CREATE TABLE ideas (
   CONSTRAINT ck_ideas_visibility CHECK (visibility IN ('PUBLIC', 'UPM_COMMUNITY'))
 ) ENGINE = InnoDB;
 
--- Idea.tags : Set<IdeaTag> (1..2 tags, checked by IdeaService when publishing)
+-- Idea.tags : Set<IdeaTag> (1..3 tags, checked by IdeaService when publishing)
 CREATE TABLE idea_tags (
   idea_id  CHAR(36)    NOT NULL,
   tag      VARCHAR(20) NOT NULL,
