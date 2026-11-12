@@ -11,10 +11,23 @@ backend/target/
 # Local configuration and secrets
 backend/src/main/resources/application-local.properties
 .env
+.env*.local
 
 # Uploaded images (local Image Storage)
 /backend/storage/
 /storage/
+
+# ---------- Frontend (Next.js / Node) ----------
+node_modules/
+.next/
+out/
+build/
+*.tsbuildinfo
+next-env.d.ts
+.vercel/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # ---------- Java (GitHub template) ----------
 # Compiled class file
