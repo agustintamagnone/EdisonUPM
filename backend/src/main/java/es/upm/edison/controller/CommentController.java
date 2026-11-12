@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
+import java.security.Principal;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -31,30 +31,30 @@ public class CommentController {
     }
 
     @GetMapping("/ideas/{ideaId}/comments")
-    public CommentListResponse list(@RequestHeader(value = CurrentUser.HEADER, required = false) UUID userId,
+    public CommentListResponse list(Principal principal,
                                     @PathVariable UUID ideaId) {
-        return commentService.list(ideaId, userId);
+        return commentService.list(ideaId, CurrentUser.id(principal));
     }
 
     @PostMapping("/ideas/{ideaId}/comments")
     @ResponseStatus(HttpStatus.CREATED)
-    public CommentResponse create(@RequestHeader(value = CurrentUser.HEADER, required = false) UUID userId,
+    public CommentResponse create(Principal principal,
                                   @PathVariable UUID ideaId,
                                   @RequestBody CommentRequest request) {
-        return commentService.create(ideaId, userId, request);
+        return commentService.create(ideaId, CurrentUser.id(principal), request);
     }
 
     @PutMapping("/comments/{commentId}")
-    public CommentResponse update(@RequestHeader(value = CurrentUser.HEADER, required = false) UUID userId,
+    public CommentResponse update(Principal principal,
                                   @PathVariable UUID commentId,
                                   @RequestBody CommentRequest request) {
-        return commentService.update(commentId, userId, request);
+        return commentService.update(commentId, CurrentUser.id(principal), request);
     }
 
     @DeleteMapping("/comments/{commentId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@RequestHeader(value = CurrentUser.HEADER, required = false) UUID userId,
+    public void delete(Principal principal,
                        @PathVariable UUID commentId) {
-        commentService.delete(commentId, userId);
+        commentService.delete(commentId, CurrentUser.id(principal));
     }
 }
