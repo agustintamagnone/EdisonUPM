@@ -1,5 +1,3 @@
-import React from 'react';
-
 interface IconProps {
   className?: string;
   size?: number;
@@ -10,26 +8,6 @@ export function IconSearch({ className = '', size = 16 }: IconProps) {
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className} aria-hidden="true">
       <circle cx="7.2" cy="7.2" r="4.7" stroke="currentColor" strokeWidth="1.6" />
       <path d="M10.7 10.7L13.8 13.8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-export function IconBell({ className = '', size = 18 }: IconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 18 18" fill="none" className={className} aria-hidden="true">
-      <path
-        d="M13.5 6.75C13.5 4.26472 11.4853 2.25 9 2.25C6.51472 2.25 4.5 4.26472 4.5 6.75C4.5 12 2.25 13.5 2.25 13.5H15.75C15.75 13.5 13.5 12 13.5 6.75Z"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M10.3 15.75C9.99686 16.2712 9.44012 16.5919 8.838 16.5919C8.23588 16.5919 7.67914 16.2712 7.376 15.75"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-      />
     </svg>
   );
 }
@@ -62,20 +40,6 @@ export function IconMessage({ className = '', size = 16 }: IconProps) {
         d="M2.5 4.2C2.5 3.26112 3.26112 2.5 4.2 2.5H11.8C12.7389 2.5 13.5 3.26112 13.5 4.2V9.8C13.5 10.7389 12.7389 11.5 11.8 11.5H6L2.5 14V4.2Z"
         stroke="currentColor"
         strokeWidth="1.5"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-export function IconThumbsUp({ className = '', size = 16 }: IconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className} aria-hidden="true">
-      <path
-        d="M5.2 7.2L7.5 2.5C8.1 2.5 8.8 3 8.8 3.9L8.5 6.2H12.3C13.1 6.2 13.7 6.9 13.5 7.7L12.5 12.5C12.3 13.1 11.8 13.5 11.2 13.5H5.2M5.2 7.2V13.5M5.2 7.2H2.8C2.4 7.2 2 7.5 2 8V12.7C2 13.1 2.4 13.5 2.8 13.5H5.2"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinecap="round"
         strokeLinejoin="round"
       />
     </svg>
@@ -151,19 +115,6 @@ export function IconLink({ className = '', size = 16 }: IconProps) {
   );
 }
 
-export function IconSparkle({ className = '', size = 16 }: IconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className} aria-hidden="true">
-      <path
-        d="M8 1.5L9.4 6.1L14 7.5L9.4 8.9L8 13.5L6.6 8.9L2 7.5L6.6 6.1L8 1.5Z"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 export function IconBulb({ className = '', size = 18 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 18 18" fill="none" className={className} aria-hidden="true">
@@ -178,31 +129,10 @@ export function IconBulb({ className = '', size = 18 }: IconProps) {
   );
 }
 
-export function IconEye({ className = '', size = 16 }: IconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className} aria-hidden="true">
-      <path
-        d="M1.5 8C2.8 4.8 5.2 3.2 8 3.2C10.8 3.2 13.2 4.8 14.5 8C13.2 11.2 10.8 12.8 8 12.8C5.2 12.8 2.8 11.2 1.5 8Z"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      />
-      <circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.5" />
-    </svg>
-  );
-}
-
 export function IconClose({ className = '', size = 16 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className} aria-hidden="true">
       <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-export function IconChevDown({ className = '', size = 14 }: IconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 14 14" fill="none" className={className} aria-hidden="true">
-      <path d="M3.5 5.25L7 8.75L10.5 5.25" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

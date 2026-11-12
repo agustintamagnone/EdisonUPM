@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Plus_Jakarta_Sans, Inter } from 'next/font/google';
+import { AuthProvider } from '@/components/auth/AuthProvider';
 import './globals.css';
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -30,7 +31,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${plusJakarta.variable} ${inter.variable}`}>
       <body className="min-h-screen bg-[#f4f7fa] font-sans text-[#0f1b2d]">
-        {children}
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );

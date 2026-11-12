@@ -16,6 +16,7 @@ export function Chip({
   return (
     <button
       type="button"
+      aria-pressed={selected}
       onClick={onClick}
       className={`inline-flex items-center justify-center rounded-full px-[14px] py-[8px] font-sans text-[13px] transition-all duration-150 ${
         selected

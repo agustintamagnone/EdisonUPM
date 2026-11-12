@@ -1,61 +1,81 @@
-export type IndustryCategory =
-  | "Green Tech"
-  | "Software"
-  | "Hardware"
-  | "HealthTech"
-  | "EdTech"
-  | "Circular Economy"
-  | "AgriTech";
+import type { ApiPath } from '@/utils/api';
+import type { AuthUser } from '@/utils/auth';
 
-export type IdeaStage = "Idea" | "Prototype" | "MVP" | "Traction";
+export type IdeaTag = 'GREEN_TECH' | 'SOFTWARE' | 'HARDWARE' | 'HEALTH_TECH' | 'ED_TECH' | 'CIRCULAR_ECONOMY';
+export type DevelopmentStage = 'CONCEPT' | 'PROTOTYPE' | 'MVP_LIVE';
+export type IdeaStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+export type Visibility = 'PUBLIC' | 'UPM_COMMUNITY';
+export type UserRole = AuthUser['role'];
 
-export type ReviewerRole = "Professor" | "Peer" | "Professional" | "Founder";
-
-export interface IdeaMetric {
+export interface IdeaSummary {
   id: string;
-  value: string;
-  label: string;
+  title: string;
+  elevatorPitch: string;
+  status: IdeaStatus;
+  visibility: Visibility;
+  developmentStage: DevelopmentStage | null;
+  tags: IdeaTag[];
+  founder: AuthUser;
+  createdAt: string;
+  publishedAt: string | null;
 }
 
-export interface FeedbackCommentItem {
+export interface Attachment {
   id: string;
-  ideaSlug: string;
-  authorName: string;
-  authorInitials: string;
-  role: ReviewerRole;
-  timeLabel: string;
-  comment: string;
-  helpfulCount: number;
-  isNew?: boolean;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  displayOrder: number;
+  url: ApiPath;
+  uploadedAt: string;
 }
 
-export interface FounderInfo {
-  name: string;
-  initials: string;
-  schoolAndYear: string;
-  fullDegreeAndSchool: string;
-  bio: string;
+export interface Idea extends IdeaSummary {
+  problemStatement: string;
+  solutionDescription: string;
+  mvpUrl: string | null;
+  feedbackEnabled: boolean;
+  allowedCommenterRoles: UserRole[];
+  screenshots: Attachment[];
 }
 
-export interface Idea {
+export interface IdeaComment {
   id: string;
-  slug: string;
+  ideaId: string;
+  author: AuthUser;
+  content: string;
+  createdAt: string;
+  updatedAt: string | null;
+}
+
+export interface CommentList {
+  count: number;
+  comments: IdeaComment[];
+}
+
+export interface PageResponse<T> {
+  content: T[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+export interface IdeaBasics {
   title: string;
   elevatorPitch: string;
   problemStatement: string;
-  description: string;
-  industries: IndustryCategory[];
-  stage: IdeaStage;
-  stageLabel: string;
-  coverImage?: string;
-  coverImages?: string[];
-  isAnonymous?: boolean;
-  mvpUrl?: string;
-  metrics: IdeaMetric[];
-  founder: FounderInfo;
-  lookingFor: string[];
-  viewsCount: number;
-  savesCount: number;
-  helpfulCount: number;
-  createdAt: string;
+  solutionDescription: string;
+}
+
+export interface IdeaClassification {
+  tags: IdeaTag[];
+  developmentStage: DevelopmentStage;
+}
+
+export interface PublishIdeaRequest {
+  feedbackEnabled: boolean;
+  allowedCommenterRoles: UserRole[];
+  visibility: Visibility;
+  declarationAccepted: boolean;
 }
