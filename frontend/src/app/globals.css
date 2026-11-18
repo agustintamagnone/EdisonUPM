@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --ink-900: #0f1b2d;
+  --ink-700: #334155;
+  --ink-500: #64748b;
+  --ink-300: #cbd5e1;
+  --surface-bg: #f4f7fa;
+  --surface-card: #ffffff;
+  --line: #e4e9f0;
+  --brand-violet-true: #4865ff;
+  --brand-violet-700: #3144aa;
+  --brand-violet-true-50: #e8ebfe;
+  --brand-violet: #7403f4;
+  --brand-violet-50: #f2e8ff;
+  --brand-gold: #e6c400;
+  --brand-gold-400: #ffcb22;
+  --brand-gold-50: #fff7da;
+  --brand-cyan: #00adcc;
+  --brand-cyan-700: #00869e;
+  --brand-cyan-50: #e5f7fa;
+  --status-success: #16a34a;
+  --status-success-50: #e7f6ec;
+}
+
+body {
+  background-color: var(--surface-bg);
+  color: var(--ink-900);
+  font-family: var(--font-inter), sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
