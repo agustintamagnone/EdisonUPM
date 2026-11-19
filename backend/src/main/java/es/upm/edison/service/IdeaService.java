@@ -131,6 +131,7 @@ public class IdeaService {
         idea.setElevatorPitch(request.elevatorPitch().trim());
         idea.setProblemStatement(request.problemStatement().trim());
         idea.setSolutionDescription(request.solutionDescription().trim());
+        idea.setContact(request.contact.trim)
         return toResponse(idea);
     }
 

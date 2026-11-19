@@ -43,6 +43,9 @@ public class Idea {
     @Column(name = "solution_description", nullable = false, length = 2000)
     private String solutionDescription;
 
+    @Column(name = "contact", nullable = true, length = 2000)
+    private String contact;
+
     /** External MVP link (HTTP/HTTPS). Optional. */
     @Column(name = "mvp_url", length = 2048)
     private String mvpUrl;
@@ -138,6 +141,8 @@ public class Idea {
     public void setProblemStatement(String problemStatement) { this.problemStatement = problemStatement; }
     public String getSolutionDescription() { return solutionDescription; }
     public void setSolutionDescription(String solutionDescription) { this.solutionDescription = solutionDescription; }
+    public String getContact() { return contact; }
+    public void setContact(String contact) { this.contact = contact; }
     public String getMvpUrl() { return mvpUrl; }
     public void setMvpUrl(String mvpUrl) { this.mvpUrl = mvpUrl; }
     public IdeaStatus getStatus() { return status; }
