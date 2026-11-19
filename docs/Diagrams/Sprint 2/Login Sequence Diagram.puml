@@ -1,0 +1,110 @@
+@startuml Login_Sequence
+' Edison UPM - Login (Sprint 2, task #118)
+' Two ways to log in, chosen by role on the sign-in screen:
+'  A) UPM community (Student, Professor, Administrator) -> UPM SSO
+'  B) Investor -> email + password
+' Both end with the same session: access token + refresh token.
+' Replaces the temporary X-User-Id header from Sprint 1.
+
+title Edison UPM - Login Sequence (Sprint 2)
+
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam dpi 130
+skinparam sequenceMessageAlign center
+skinparam ParticipantBackgroundColor #F1F1F1
+skinparam ParticipantBorderColor #555555
+skinparam ActorBackgroundColor #F1F1F1
+skinparam ActorBorderColor #555555
+skinparam DatabaseBackgroundColor #F1F1F1
+skinparam DatabaseBorderColor #555555
+skinparam SequenceGroupBorderColor #333333
+skinparam SequenceGroupHeaderFontStyle bold
+skinparam ArrowColor #333333
+skinparam SequenceLifeLineBorderColor #555555
+skinparam NoteBackgroundColor #FFFFFF
+skinparam NoteBorderColor #555555
+autonumber
+
+actor User
+participant "Frontend" as FE
+participant "UPM SSO" as UPM
+participant "AuthController" as AC
+participant "AuthService" as AS
+database "MySQL\n(users, refresh_tokens)" as DB
+
+User -> FE : Open "Sign in"
+FE --> User : Choose "I am from UPM" or "I am an investor"
+
+alt A) UPM community (Student / Professor / Administrator)
+  User -> FE : Sign in with UPM
+  FE -> UPM : Redirect to UPM login page
+  User -> UPM : Enter UPM credentials
+  alt User cancels or UPM login fails
+    UPM --> FE : Redirect back with error
+    FE --> User : "UPM sign-in was cancelled"
+  else UPM login OK
+    UPM --> FE : Redirect back with authorization code
+    FE -> AC : POST /api/auth/upm {code}
+    AC -> AS : loginWithUpm(code)
+    AS -> UPM : Exchange code for identity
+    UPM --> AS : email, fullName, affiliation
+    AS -> DB : Find user by email
+    alt First login
+      AS -> AS : Map affiliation to role\n(student → STUDENT, staff → PROFESSOR)
+      AS -> DB : Insert user\n(authMethod UPM, status ACTIVE, emailVerified true)
+    else Existing user
+      AS -> DB : Update fullName if changed
+    end
+    alt status = DELETED or affiliation not allowed
+      AS --> AC : Forbidden
+      AC --> FE : 403 "This UPM account cannot use Edison"
+      FE --> User : Show error
+    else status = ACTIVE
+      AS -> DB : Save refresh token hash, set lastLoginAt
+      AS --> AC : Tokens + user
+      AC --> FE : 200 {accessToken, refreshToken, user}
+    end
+  end
+
+else B) Investor (email + password)
+  User -> FE : Enter email and password
+  FE -> FE : Check both fields are filled
+  FE -> AC : POST /api/auth/login {email, password}
+  AC -> AS : login(email, password)
+  AS -> DB : Find user by email (authMethod PASSWORD)
+  alt Email not found, account DELETED, or wrong password
+    AS -> DB : failedLoginAttempts + 1 (if the user exists)
+    alt failedLoginAttempts reaches 5
+      AS -> DB : status = LOCKED
+    end
+    AS --> AC : Invalid credentials
+    AC --> FE : 401 "Email or password is incorrect"
+    FE --> User : Show error (same text, never says which one)
+  else status = LOCKED
+    AS --> AC : Locked
+    AC --> FE : 423 "Account locked. Reset your password"
+    FE --> User : Show error + "Reset password" link
+  else status = UNVERIFIED
+    AS --> AC : Not verified
+    AC --> FE : 403 "Verify your email first"
+    FE --> User : Show error + "Resend email" button
+  else Password OK and status = ACTIVE
+    AS -> DB : failedLoginAttempts = 0, set lastLoginAt,\nsave refresh token hash
+    AS --> AC : Tokens + user
+    AC --> FE : 200 {accessToken, refreshToken, user}
+  end
+end
+
+opt Login succeeded
+  FE -> FE : Save session
+  note right of FE
+    Every following request sends
+    Authorization: Bearer <accessToken>
+    instead of X-User-Id.
+    Refresh and logout: see #120.
+  end note
+  FE --> User : Home page for the user's role
+end
+@enduml

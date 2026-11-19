@@ -1,0 +1,154 @@
+@startuml Investor_Preferences_Data_Model
+' Edison UPM - Investor preferences data model (Sprint 2, task 2.2.9, US 2.2 Matchmaking engine)
+' Design proposal (not implemented yet). Reuses the IdeaTag and DevelopmentStage
+' fixed lists from task 2.1.9, so an investor's preferences can be compared
+' directly with an idea's tags and stage.
+' Matches are computed on request (see "Idea Search Filters" in the Wiki); no match table is stored.
+
+title Edison UPM - Investor Preferences Data Model (Sprint 2)
+
+skinparam linetype polyline
+skinparam ArrowColor #333333
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam dpi 130
+skinparam nodesep 80
+skinparam ranksep 90
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor #F1F1F1
+  BorderColor #555555
+  AttributeFontSize 11
+}
+skinparam package {
+  BorderColor #333333
+  FontStyle bold
+}
+skinparam note {
+  BackgroundColor #FFFFFF
+  BorderColor #555555
+}
+hide circle
+hide empty methods
+
+' ================= CLASS MODEL (backend) =================
+package "Class model (backend)" as CLASSES {
+
+  class User <<Sprint 1>> {
+    id : UUID
+    fullName : String
+    email : String
+    role : UserRole
+  }
+
+  class InvestorPreferences <<new>> {
+    preferredTags : Set<IdeaTag> {0..6}
+    preferredStages : Set<DevelopmentStage> {0..3}
+    keywords : Set<String> {0..10, length <= 40}
+    updatedAt : DateTime
+  }
+
+  class Idea <<Sprint 1>> {
+    id : UUID
+    status : IdeaStatus
+    visibility : Visibility
+    .. other attributes omitted ..
+    tags : Set<IdeaTag>
+    developmentStage : DevelopmentStage [0..1]
+  }
+
+  enum IdeaTag {
+    GREEN_TECH
+    SOFTWARE
+    HARDWARE
+    HEALTH_TECH
+    ED_TECH
+    CIRCULAR_ECONOMY
+  }
+
+  enum DevelopmentStage {
+    CONCEPT
+    PROTOTYPE
+    MVP_LIVE
+  }
+
+  User "1" *-down- "0..1" InvestorPreferences : preferences
+  InvestorPreferences --> "0..6" IdeaTag : preferredTags
+  InvestorPreferences --> "0..3" DevelopmentStage : preferredStages
+  Idea --> "0..3" IdeaTag : tags
+  Idea --> "0..1" DevelopmentStage : developmentStage
+  InvestorPreferences ..> Idea : <<matches>>
+
+  note as NRules
+    <b>Rules (checked by MatchmakingService)</b>
+    Only users with role INVESTOR have preferences.
+    Created the first time the investor saves them
+    (no row = no preferences yet).
+    Empty sets mean "any": no tags = all tags.
+    Keywords: trimmed, lower-case, no duplicates,
+    max. 10, each 2..40 characters.
+  end note
+
+  note as NMatching
+    <b>Matching</b> only uses PUBLISHED ideas
+    the investor can see (PUBLIC visibility;
+    UPM_COMMUNITY ideas stay hidden from
+    investors, as in Sprint 1).
+  end note
+
+  NRules -[hidden]down- NMatching
+}
+
+' ================= ER MODEL (MySQL) =================
+package "ER model (MySQL)" as TABLES {
+
+  class users <<table>> {
+    id : CHAR(36) <<PK>>
+    role : VARCHAR(20)
+    .. other columns omitted ..
+  }
+
+  class investor_preferences <<table, new>> {
+    user_id : CHAR(36) <<PK, FK>>
+    updated_at : DATETIME(6)
+  }
+
+  class investor_preferred_tags <<table, new>> {
+    user_id : CHAR(36) <<PK, FK>>
+    tag : VARCHAR(20) <<PK>>
+    --
+    CHECK tag IN (same 6 codes as idea_tags)
+  }
+
+  class investor_preferred_stages <<table, new>> {
+    user_id : CHAR(36) <<PK, FK>>
+    stage : VARCHAR(20) <<PK>>
+    --
+    CHECK stage IN (same 3 codes as idea_stage)
+  }
+
+  class investor_keywords <<table, new>> {
+    user_id : CHAR(36) <<PK, FK>>
+    keyword : VARCHAR(40) <<PK>>
+  }
+
+  users "1" *-- "0..1" investor_preferences : ON DELETE CASCADE
+  investor_preferences "1" *-- "0..*" investor_preferred_tags : ON DELETE CASCADE
+  investor_preferences "1" *-- "0..*" investor_preferred_stages : ON DELETE CASCADE
+  investor_preferences "1" *-- "0..*" investor_keywords : ON DELETE CASCADE
+}
+
+InvestorPreferences .down.> investor_preferences : <<persisted in>>
+
+note bottom of investor_keywords
+  PK (user_id, keyword): the same keyword
+  cannot be saved twice. The max. of 10 is
+  checked by the backend, not the DB.
+end note
+
+note bottom of investor_preferences
+  PK (user_id): one preferences row per
+  investor (1:0..1 with users).
+end note
+@enduml

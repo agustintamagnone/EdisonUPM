@@ -1,0 +1,148 @@
+@startuml Contact_Data_Model
+' Edison UPM - Contact options data model (Sprint 2, task 2.3.7, US 2.3 Contact Options)
+' Design proposal. Replaces the single free-text column ideas.contact (VARCHAR 2000)
+' from branch feature/contact with structured, validated contact options, each with
+' its own audience, so founders' emails and phones are not public by default.
+
+title Edison UPM - Contact Data Model (Sprint 2)
+
+skinparam linetype polyline
+skinparam ArrowColor #333333
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam dpi 130
+skinparam nodesep 80
+skinparam ranksep 90
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor #F1F1F1
+  BorderColor #555555
+  AttributeFontSize 11
+}
+skinparam package {
+  BorderColor #333333
+  FontStyle bold
+}
+skinparam note {
+  BackgroundColor #FFFFFF
+  BorderColor #555555
+}
+hide circle
+hide empty methods
+
+' ================= CLASS MODEL (backend) =================
+package "Class model (backend)" as CLASSES {
+
+  class Idea <<Sprint 1>> {
+    id : UUID
+    status : IdeaStatus
+    visibility : Visibility
+    .. other attributes omitted ..
+    contactOptions : List<ContactOption> {0..5}
+  }
+
+  class User <<Sprint 1>> {
+    id : UUID
+    role : UserRole
+  }
+
+  class ContactOption <<new>> {
+    id : UUID
+    type : ContactType
+    value : String {length <= 254, validated by type}
+    label : String [0..1] {length <= 40}
+    audience : ContactAudience
+    displayOrder : Integer
+    createdAt : DateTime
+    updatedAt : DateTime [0..1]
+  }
+
+  enum ContactType {
+    EMAIL = "Email"
+    LINKEDIN = "LinkedIn"
+    WEBSITE = "Website"
+    PHONE = "Phone"
+  }
+
+  enum ContactAudience {
+    ALL_VIEWERS = "Everyone who can see the idea"
+    SIGNED_IN = "Signed-in users"
+    INVESTORS = "Investors only"
+  }
+
+  Idea "1" *-down- "0..5" ContactOption : contactOptions
+  Idea "0..*" -up-> "1" User : founder
+  ContactOption --> "1" ContactType : type
+  ContactOption --> "1" ContactAudience : audience
+
+  note as NRules
+    <b>Rules (checked by IdeaService)</b>
+    Only the founder adds, edits, removes
+    or reorders contact options.
+    Max. 5 per idea; the same type + value
+    cannot be repeated.
+    Optional: an idea can be published
+    with no contact options.
+    Default audience: SIGNED_IN.
+  end note
+
+  note as NValidation
+    <b>Validation of value by type</b>
+    EMAIL: valid e-mail address
+    LINKEDIN: https://(www.)linkedin.com/...
+    WEBSITE: HTTP or HTTPS URL
+    PHONE: international format, e.g.
+    +34 600 123 456 (E.164 when stored)
+  end note
+
+  NRules -[hidden]down- NValidation
+}
+
+' ================= ER MODEL (MySQL) =================
+package "ER model (MySQL)" as TABLES {
+
+  class ideas <<table>> {
+    id : CHAR(36) <<PK>>
+    founder_id : CHAR(36) <<FK>>
+    .. other columns omitted ..
+  }
+
+  class idea_contact_options <<table, new>> {
+    id : CHAR(36) <<PK>>
+    idea_id : CHAR(36) <<FK>>
+    type : VARCHAR(20)
+    value : VARCHAR(254)
+    label : VARCHAR(40) NULL
+    audience : VARCHAR(20)
+    display_order : INT
+    created_at : DATETIME(6)
+    updated_at : DATETIME(6) NULL
+    --
+    UNIQUE (idea_id, type, value)
+    CHECK type IN (EMAIL, LINKEDIN, WEBSITE, PHONE)
+    CHECK audience IN (ALL_VIEWERS, SIGNED_IN, INVESTORS)
+  }
+
+  ideas "1" *-- "0..*" idea_contact_options : ON DELETE CASCADE
+}
+
+ContactOption .down.> idea_contact_options : <<persisted in>>
+
+note bottom of idea_contact_options
+  The max. of 5 options per idea is
+  checked by the backend, not the DB.
+  Replaces ideas.contact VARCHAR(2000)
+  from branch feature/contact.
+end note
+
+note right of ContactAudience
+  <b>Who sees each option</b> (API responses)
+  The founder always sees all of them.
+  Others only get the options whose audience
+  they match; the rest are left out of the
+  response (not just hidden in the UI).
+  Investors see only PUBLIC ideas, so
+  INVESTORS options appear on PUBLIC ideas.
+end note
+@enduml
