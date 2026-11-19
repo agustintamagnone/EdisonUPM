@@ -1,0 +1,128 @@
+@startuml Idea_Tags_and_Stage_Data_Model
+' Edison UPM - Tag and development stage model of an Idea (Sprint 2, task #106, US #72)
+' Documents what is implemented:
+'  - backend: model/IdeaTag.java, model/DevelopmentStage.java, model/Idea.java, service/IdeaService.java
+'  - database: database/01_schema.sql (idea_tags, idea_stage)
+'  - frontend display labels: frontend/src/utils/ideaDisplay.ts (TAG_LABELS, STAGE_LABELS)
+
+title Edison UPM - Idea Tags and Development Stage Data Model (Sprint 2)
+
+skinparam linetype polyline
+skinparam ArrowColor #333333
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam dpi 130
+skinparam nodesep 80
+skinparam ranksep 90
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor #F1F1F1
+  BorderColor #555555
+  AttributeFontSize 11
+}
+skinparam package {
+  BorderColor #333333
+  FontStyle bold
+}
+skinparam note {
+  BackgroundColor #FFFFFF
+  BorderColor #555555
+}
+hide circle
+hide empty methods
+
+' ================= CLASS MODEL (backend) =================
+package "Class model (backend)" as CLASSES {
+
+  class Idea {
+    id : UUID
+    title : String
+    status : IdeaStatus
+    .. other attributes omitted ..
+    tags : Set<IdeaTag> {0..3, 1..3 to publish}
+    developmentStage : DevelopmentStage [0..1] {required to publish}
+  }
+
+  enum IdeaTag {
+    GREEN_TECH = "Green Tech"
+    SOFTWARE = "Software"
+    HARDWARE = "Hardware"
+    HEALTH_TECH = "HealthTech"
+    ED_TECH = "EdTech"
+    CIRCULAR_ECONOMY = "Circular Economy"
+  }
+
+  enum DevelopmentStage {
+    CONCEPT = "Idea"
+    PROTOTYPE = "Prototype"
+    MVP_LIVE = "MVP live"
+  }
+
+  Idea "0..*" --> "0..3" IdeaTag : tags
+  Idea "0..*" --> "0..1" DevelopmentStage : developmentStage
+}
+
+' ================= ER MODEL (MySQL) =================
+package "ER model (MySQL)" as TABLES {
+
+  class ideas <<table>> {
+    id : CHAR(36) <<PK>>
+    title : VARCHAR(120)
+    status : VARCHAR(20)
+    .. other columns omitted ..
+  }
+
+  class idea_tags <<table>> {
+    idea_id : CHAR(36) <<PK, FK>>
+    tag : VARCHAR(20) <<PK>>
+    --
+    CHECK tag IN (GREEN_TECH, SOFTWARE, HARDWARE,
+      HEALTH_TECH, ED_TECH, CIRCULAR_ECONOMY)
+  }
+
+  class idea_stage <<table>> {
+    idea_id : CHAR(36) <<PK, FK>>
+    stage : VARCHAR(20)
+    --
+    CHECK stage IN (CONCEPT, PROTOTYPE, MVP_LIVE)
+  }
+
+  ideas "1" *-- "0..*" idea_tags : ON DELETE CASCADE
+  ideas "1" *-- "0..1" idea_stage : ON DELETE CASCADE
+}
+
+' Each class is stored in the table below it
+Idea .down.> ideas : <<persisted in>>
+IdeaTag .down.> idea_tags : <<persisted in>>
+DevelopmentStage .down.> idea_stage : <<persisted in>>
+
+note right of Idea
+  <b>Rules (checked by IdeaService)</b>
+  A DRAFT may have 0..3 tags and no stage.
+  To publish: 1, 2 or 3 tags and a stage.
+  Tags and stage are fixed lists:
+  users pick them, never create or edit them.
+end note
+
+note bottom of IdeaTag
+  <b>API</b> (JSON names)
+  tags : ["SOFTWARE", ...]
+  developmentStage : "PROTOTYPE"
+  Values travel as codes; the label
+  (CODE = "Label") is only shown by
+  the frontend (ideaDisplay.ts).
+  An unknown code → 400 Bad Request.
+end note
+
+note bottom of idea_tags
+  PK (idea_id, tag): the same tag
+  cannot be repeated on an idea.
+  The 3-tag limit is not a DB constraint.
+end note
+
+note bottom of idea_stage
+  PK (idea_id): at most one stage
+  per idea. No row until it is chosen.
+end note
+@enduml

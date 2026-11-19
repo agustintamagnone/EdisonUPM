@@ -1,0 +1,127 @@
+@startuml Component_Diagram_v3
+' Edison UPM - Component diagram updated for matchmaking (Sprint 2, task 2.2.13, US 2.2)
+' Changes vs Sprint 1 (v2):
+'  - Auth component (already implemented: AuthController + SecurityConfig, session cookie + CSRF)
+'  - NEW Matchmaking component: investor preferences and matches (design, not implemented yet)
+'  - Ideas API search gains the filters defined in task 2.2.11
+' ELK layout: orthogonal routing where each arrow gets its own track (no overlapping lines)
+!pragma layout elk
+title Edison UPM - Component Diagram (v3, Sprint 2: Matchmaking)
+
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam dpi 130
+skinparam packageStyle rectangle
+skinparam component {
+  BackgroundColor #F1F1F1
+  BorderColor #555555
+}
+skinparam component<<new>> {
+  BackgroundColor #FFF4D6
+  BorderColor #B8860B
+}
+skinparam component<<Sprint 2>> {
+  BackgroundColor #E8F0FB
+  BorderColor #4A6FA5
+}
+skinparam interface {
+  BackgroundColor #FFFFFF
+  BorderColor #555555
+}
+skinparam package {
+  BorderColor #333333
+  FontStyle bold
+}
+skinparam note {
+  BackgroundColor #FFFFFF
+  BorderColor #555555
+}
+skinparam ArrowColor #333333
+<style>
+component {
+  MinimumWidth 230
+}
+</style>
+
+actor "Platform User\n(Student / Professor)" as PlatformUser
+actor "Investor" as Investor
+
+package "Client Application (View)" as CLIENT {
+  component "Web Client (Frontend, Next.js)\n\nREST calls over HTTP / JSON\n(multipart for image uploads)\nsession cookie + CSRF token" as WebClient
+}
+
+package "Backend Application" as BACKEND {
+  interface "Auth API" as IAuth
+  interface "Ideas API" as IIdeas
+  interface "Attachments\nAPI" as IAttachments
+  interface "Comments API" as IComments
+  interface "Users API" as IUsers
+  interface "Matchmaking API" as IMatch
+
+  component "Auth\n\nAuthController\nSecurityConfig\n(Spring Security)" <<Sprint 2>> as Auth
+  component "Ideas\n\nIdeaController\nIdeaService\nIdeaRepository" as Ideas
+  component "Attachments\n\nAttachmentController\nAttachmentService\nAttachmentRepository" as Attachments
+  component "Comments\n\nCommentController\nCommentService\nCommentRepository" as Comments
+  component "Users\n\nUserController\nUserService\nUserRepository" as Users
+  component "Matchmaking\n\nMatchmakingController\nMatchmakingService\nInvestorPreferencesRepository" <<new>> as Matchmaking
+
+  Auth -up- IAuth
+  Ideas -up- IIdeas
+  Attachments -up- IAttachments
+  Comments -up- IComments
+  Users -up- IUsers
+  Matchmaking -up- IMatch
+}
+
+package "Infrastructure" as INFRA {
+  database "Relational Database\n(MySQL)" as DB
+  folder "Image Storage" as IMG
+}
+
+' --- client side ---
+PlatformUser --> WebClient
+Investor --> WebClient
+WebClient ..> IAuth : login / logout
+WebClient ..> IIdeas
+WebClient ..> IAttachments
+WebClient ..> IComments
+WebClient ..> IUsers
+WebClient ..> IMatch : preferences,\nmatches
+
+' --- dependencies between backend components (service -> repository in the MVC) ---
+Auth ..> Users : find user,\ncheck password
+Attachments ..> Ideas : load draft,\ncheck founder
+Ideas ..> Attachments : count screenshots\nbefore publishing
+Comments ..> Ideas : idea status and\nfeedback settings
+Comments ..> Users : comment author
+Ideas ..> Users : founder
+Users ..> Ideas : saved ideas
+Matchmaking ..> Ideas : search visible\npublished ideas
+Matchmaking ..> Users : check role\nINVESTOR
+
+' --- infrastructure ---
+Ideas --> DB : SQL
+Attachments --> DB : SQL
+Comments --> DB : SQL
+Users --> DB : SQL
+Matchmaking --> DB : SQL\n(investor_preferences,\ninvestor_preferred_*,\ninvestor_keywords)
+Attachments --> IMG : image files
+
+note right of Matchmaking
+  <b>New in US 2.2</b>
+  Investor preferences:
+  GET/PUT /api/investors/me/preferences
+  Matches: GET /api/matches
+  Ideas API search gets new filters
+  (tag, stage, hasMvp, sort=match...)
+end note
+
+legend right
+  |= Colour |= Meaning |
+  |<#F1F1F1> | Sprint 1 (unchanged) |
+  |<#E8F0FB> | Sprint 2, implemented |
+  |<#FFF4D6> | Sprint 2, new design (US 2.2) |
+endlegend
+
+@enduml

@@ -1,0 +1,82 @@
+@startuml Investor_Signup_Sequence
+' Edison UPM - Investor sign-up (Sprint 2, task #118)
+' Only investors sign up by themselves. UPM users get their account
+' automatically on their first UPM login (see Login Sequence).
+
+title Edison UPM - Investor Sign-up Sequence (Sprint 2)
+
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam dpi 130
+skinparam sequenceMessageAlign center
+skinparam ParticipantBackgroundColor #F1F1F1
+skinparam ParticipantBorderColor #555555
+skinparam ActorBackgroundColor #F1F1F1
+skinparam ActorBorderColor #555555
+skinparam DatabaseBackgroundColor #F1F1F1
+skinparam DatabaseBorderColor #555555
+skinparam SequenceGroupBorderColor #333333
+skinparam SequenceGroupHeaderFontStyle bold
+skinparam ArrowColor #333333
+skinparam SequenceLifeLineBorderColor #555555
+skinparam NoteBackgroundColor #FFFFFF
+skinparam NoteBorderColor #555555
+autonumber
+
+actor Investor
+participant "Frontend" as FE
+participant "AuthController" as AC
+participant "AuthService" as AS
+database "MySQL\n(users, email_verification_tokens)" as DB
+participant "Email service" as MAIL
+
+== 1. Create the account ==
+Investor -> FE : Open "Sign up as investor"
+Investor -> FE : Enter full name, email, password
+FE -> FE : Check fields (name required, valid email,\npassword at least 8 chars)
+FE -> AC : POST /api/auth/signup {fullName, email, password}
+AC -> AS : signUpInvestor(...)
+AS -> AS : Validate the same rules again
+alt Invalid data
+  AS --> AC : Validation errors
+  AC --> FE : 400 {field: message}
+  FE --> Investor : Show message under each field
+else Email already used
+  AS --> AC : Conflict
+  AC --> FE : 409 "An account with this email already exists"
+  FE --> Investor : Show error + "Sign in" link
+else Data OK
+  AS -> AS : Hash password (BCrypt)
+  AS -> DB : Insert user (role INVESTOR, authMethod PASSWORD,\nstatus UNVERIFIED, emailVerified false)
+  AS -> DB : Insert verification token hash (expires in 24 h)
+  AS -> MAIL : Send email with verification link
+  AS --> AC : Created
+  AC --> FE : 201 "Check your email"
+  FE --> Investor : "We sent you a link to verify your email"
+end
+
+== 2. Verify the email ==
+Investor -> FE : Open link from the email
+FE -> AC : POST /api/auth/verify-email {token}
+AC -> AS : verifyEmail(token)
+AS -> DB : Find token by hash
+alt Token not found, already used or expired
+  AS --> AC : Invalid token
+  AC --> FE : 400 "This link is not valid any more"
+  FE --> Investor : Show error + "Resend email" button
+  opt Investor asks for a new link
+    FE -> AC : POST /api/auth/resend-verification {email}
+    AC -> AS : resendVerification(email)
+    AS -> DB : New token, old ones stop working
+    AS -> MAIL : Send new link
+    AC --> FE : 202 (same answer even if the email does not exist)
+  end
+else Token valid
+  AS -> DB : Mark token used;\nuser emailVerified = true, status = ACTIVE
+  AS -> DB : Save refresh token hash, set lastLoginAt
+  AS --> AC : Tokens + user
+  AC --> FE : 200 {accessToken, refreshToken, user}
+  FE --> Investor : Logged in, go to investor home\n(preferences can be set later, US2.2)
+end
+@enduml

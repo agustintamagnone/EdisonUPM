@@ -1,0 +1,111 @@
+@startuml User_Authentication_Data_Model
+' Edison UPM - User model extended for authentication (Sprint 2, task #117)
+' Login options:
+'  - UPM community (Student, Professor, Administrator): UPM SSO only, no password stored
+'  - Investor: self sign-up with email + password, email must be verified
+' Existing columns of users (id, full_name, email, role) are kept, so ideas,
+' comments and saved ideas that point to users.id keep working.
+
+title Edison UPM - User Authentication Data Model (Sprint 2)
+
+skinparam linetype polyline
+skinparam ArrowColor #333333
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam dpi 130
+skinparam nodesep 80
+skinparam ranksep 90
+skinparam class {
+  BackgroundColor #F1F1F1
+  BorderColor #555555
+  AttributeFontSize 11
+}
+skinparam note {
+  BackgroundColor #FFFFFF
+  BorderColor #555555
+}
+hide circle
+hide empty methods
+
+class User <<users>> {
+  id : UUID <<PK>>
+  fullName : String {length <= 120}
+  email : String {unique, length <= 254}
+  role : UserRole
+  .. new in Sprint 2 ..
+  authMethod : AuthMethod
+  passwordHash : String [0..1]
+  emailVerified : Boolean
+  status : AccountStatus
+  failedLoginAttempts : Integer
+  createdAt : DateTime
+  lastLoginAt : DateTime [0..1]
+}
+
+class EmailVerificationToken <<email_verification_tokens>> {
+  id : UUID <<PK>>
+  tokenHash : String {unique}
+  expiresAt : DateTime
+  usedAt : DateTime [0..1]
+  createdAt : DateTime
+}
+
+class RefreshToken <<refresh_tokens>> {
+  id : UUID <<PK>>
+  tokenHash : String {unique}
+  expiresAt : DateTime
+  revokedAt : DateTime [0..1]
+  createdAt : DateTime
+}
+
+enum UserRole {
+  STUDENT
+  PROFESSOR
+  ADMINISTRATOR
+  INVESTOR
+}
+
+enum AuthMethod {
+  UPM
+  PASSWORD
+}
+
+enum AccountStatus {
+  UNVERIFIED
+  ACTIVE
+  LOCKED
+  DELETED
+}
+
+class "Idea / Comment / SavedIdea" as Existing <<Sprint 1>> {
+  founder_id / author_id / user_id → users.id
+}
+
+User "1" *-down- "0..*" EmailVerificationToken : verifies email with
+User "1" *-down- "0..*" RefreshToken : sessions
+Existing "0..*" -up-> "1" User : unchanged
+
+' keep enums grouped together below the classes
+EmailVerificationToken -[hidden]down- UserRole
+UserRole -[hidden]right- AuthMethod
+AuthMethod -[hidden]right- AccountStatus
+
+note right of User
+  <b>Rules (checked by BACK)</b>
+  authMethod = UPM
+    → passwordHash null (user found by email)
+    → role STUDENT, PROFESSOR or ADMINISTRATOR
+    → emailVerified = true, status starts ACTIVE
+  authMethod = PASSWORD
+    → passwordHash required (BCrypt)
+    → role INVESTOR
+    → status starts UNVERIFIED until email verified
+  5 failed password logins → status LOCKED
+end note
+
+note bottom of RefreshToken
+  Only the hash of each token is stored.
+  Access tokens are not stored (short-lived JWT).
+end note
+@enduml
