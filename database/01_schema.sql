@@ -38,6 +38,7 @@ CREATE TABLE ideas (
   elevator_pitch        VARCHAR(300)  NOT NULL,
   problem_statement     VARCHAR(2000) NOT NULL,
   solution_description  VARCHAR(2000) NOT NULL,
+  contact               VARCHAR(2000),
   mvp_url               VARCHAR(2048) NULL,
   status                VARCHAR(20)   NOT NULL DEFAULT 'DRAFT',
   visibility            VARCHAR(20)   NOT NULL DEFAULT 'PUBLIC',
