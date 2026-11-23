@@ -12,18 +12,18 @@ INSERT INTO users (id, full_name, email, role, password_hash) VALUES
   ('55555555-5555-5555-5555-555555555555', 'Javier Ortega', 'javier.ortega@example.com',   'INVESTOR', '$2a$10$PDYn7y.lkCZahYv8TXpueuadGTy/1bvCQsT0MfC6rafEpiUIm.87y');
 
 -- One published idea with a comment, and one draft
-INSERT INTO ideas (id, founder_id, title, elevator_pitch, problem_statement, solution_description,
+INSERT INTO ideas (id, founder_id, title, elevator_pitch, problem_statement, solution_description, contact,
                    mvp_url, status, visibility, feedback_enabled, created_at, published_at) VALUES
   ('a0000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
    'CampusShare', 'Share bikes and scooters between UPM campuses.',
    'Moving between UPM campuses is slow and expensive for students.',
-   'A booking app for shared bikes and scooters with stations on every campus.',
+   'A booking app for shared bikes and scooters with stations on every campus.','lucia.martin@alumnos.upm.es',
    'https://example.com/campusshare', 'PUBLISHED', 'PUBLIC', TRUE,
    UTC_TIMESTAMP(6), UTC_TIMESTAMP(6)),
   ('a0000000-0000-0000-0000-000000000002', '22222222-2222-2222-2222-222222222222',
    'StudyBuddy AI', 'An AI tutor trained on UPM course material.',
    'Students lack personalised help outside office hours.',
-   'A chat assistant that answers questions using the course notes.',
+   'A chat assistant that answers questions using the course notes.','carlos.ruiz@alumnos.upm.es',
    NULL, 'DRAFT', 'PUBLIC', TRUE, UTC_TIMESTAMP(6), NULL);
 
 INSERT INTO idea_tags (idea_id, tag) VALUES

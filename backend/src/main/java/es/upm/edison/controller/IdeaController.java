@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /** Create and edit drafts, publish and archive ideas, browse and search ideas, manage MVP link. */
@@ -50,13 +51,15 @@ public class IdeaController {
         return ideaService.getDevelopmentStages();
     }
 
+    /** Repeat {@code tag} up to three times; optional {@code stage} filters without adding to the score. */
     @GetMapping("/ideas")
     public PageResponse<IdeaSummaryResponse> browse(Principal principal,
                                                     @RequestParam(required = false) String q,
-                                                    @RequestParam(required = false) IdeaTag tag,
+                                                    @RequestParam(name = "tag", required = false) Set<IdeaTag> tags,
+                                                    @RequestParam(required = false) DevelopmentStage stage,
                                                     @RequestParam(defaultValue = "0") int page,
                                                     @RequestParam(defaultValue = "12") int size) {
-        return ideaService.browse(CurrentUser.id(principal), q, tag, page, size);
+        return ideaService.browse(CurrentUser.id(principal), q, tags, stage, page, size);
     }
 
     @GetMapping("/ideas/mine")
