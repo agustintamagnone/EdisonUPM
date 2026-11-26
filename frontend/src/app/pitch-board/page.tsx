@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { TopNav } from '@/components/layout/TopNav';
@@ -8,9 +8,10 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { IdeaCard } from '@/components/pitch-board/IdeaCard';
 import { Chip } from '@/components/ui/Chip';
 import { IconPlus, IconSearch } from '@/components/ui/Icons';
-import type { IdeaTag } from '@/types';
+import type { IdeaSummary, IdeaTag, PageResponse } from '@/types';
 import { apiErrorMessage } from '@/utils/api';
-import { getTags, listIdeas } from '@/utils/ideas';
+import { getTags, listAllIdeas, listIdeas } from '@/utils/ideas';
+import { investorPreferencesHref, rankIdeas, readInvestorPreferences, type InvestorPreferences } from '@/utils/investorMatching';
 import { TAG_LABELS } from '@/utils/ideaDisplay';
 import { useApiResource } from '@/utils/useApiResource';
 import { useSavedIdeas } from '@/utils/useSavedIdeas';
@@ -24,12 +25,40 @@ export default function PitchBoardPage() {
   const [query, setQuery] = useState('');
   const [tag, setTag] = useState<IdeaTag | null>(null);
   const [page, setPage] = useState(0);
+  const [matchPreferences, setMatchPreferences] = useState<InvestorPreferences | null>(null);
+  const [matchModeReady, setMatchModeReady] = useState(false);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('sort') === 'match') {
+      const preferences = readInvestorPreferences(params);
+      setMatchPreferences(preferences.tags.length || preferences.stages.length ? preferences : null);
+    }
+    setMatchModeReady(true);
+  }, []);
   const fetchPage = useCallback((signal: AbortSignal) => listIdeas(query, tag, page, signal), [query, tag, page]);
-  const results = useApiResource(isRestoring ? null : fetchPage, user?.id);
+  const fetchMatches = useCallback(async (signal: AbortSignal): Promise<PageResponse<IdeaSummary>> => {
+    if (!matchPreferences) throw new Error('Investor preferences are unavailable.');
+    const ideas = rankIdeas(await listAllIdeas(query, tag, signal), matchPreferences);
+    return {
+      content: ideas,
+      page: 0,
+      size: 12,
+      totalElements: ideas.length,
+      totalPages: Math.ceil(ideas.length / 12),
+    };
+  }, [query, tag, matchPreferences]);
+  const normalResults = useApiResource(!isRestoring && matchModeReady && !matchPreferences ? fetchPage : null, user?.id);
+  const matchedResults = useApiResource(!isRestoring && matchModeReady && matchPreferences ? fetchMatches : null, user?.id);
+  const results = matchPreferences ? matchedResults : normalResults;
   const tags = useApiResource(getTags);
   const bookmarks = useSavedIdeas();
   const savedIds = new Set(bookmarks.data?.map((idea) => idea.id));
   const data = results.data;
+  const displayContent = data && matchPreferences
+    ? data.content.slice(page * data.size, (page + 1) * data.size)
+    : data?.content ?? [];
+  const currentPage = matchPreferences ? page : data?.page ?? 0;
+  const totalPages = matchPreferences && data ? Math.ceil(data.totalElements / data.size) : data?.totalPages ?? 0;
 
   function search(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -103,6 +132,12 @@ export default function PitchBoardPage() {
               <IconPlus size={16} />
               <span>Publish your idea</span>
             </Link>}
+            {user?.role === 'INVESTOR' && <Link
+              href={matchPreferences ? investorPreferencesHref('/investor-interests', matchPreferences) : '/investor-interests'}
+              className="inline-flex h-[44px] items-center gap-2 rounded-[10px] border border-white/40 bg-white/10 px-4 font-sans text-sm font-bold text-white transition-colors hover:bg-white/20"
+            >
+              {matchPreferences ? 'Change interests' : "Tell us what you're looking for"}
+            </Link>}
 
             {results.data && (
               <div className="rounded-[12px] border border-white/20 bg-white/10 px-[16px] py-[10px] backdrop-blur-sm">
@@ -142,11 +177,13 @@ export default function PitchBoardPage() {
             <div className="flex flex-wrap items-center gap-[10px]">
               {data && data.totalElements > 0 && (
                 <span className="font-sans text-[12px] font-medium text-[#64748b]">
-                  Showing {data.page * data.size + 1}–{data.page * data.size + data.content.length} of {data.totalElements}
+                  Showing {matchPreferences ? page * data.size + 1 : data.page * data.size + 1}–{matchPreferences
+                    ? Math.min(page * data.size + displayContent.length, data.totalElements)
+                    : data.page * data.size + data.content.length} of {data.totalElements}
                 </span>
               )}
               <span className="inline-flex h-[36px] items-center rounded-[10px] border border-[#e4e9f0] bg-white px-[12px] font-sans text-[13px] font-semibold text-[#0f1b2d]">
-                Newest first
+                {matchPreferences ? 'Sorted by best match' : 'Newest first'}
               </span>
             </div>
           </div>
@@ -159,28 +196,28 @@ export default function PitchBoardPage() {
           </div>
         )}
 
-        {isRestoring || results.loading ? (
+        {isRestoring || !matchModeReady || results.loading ? (
           <div role="status" className="rounded-[16px] border border-[#e4e9f0] bg-white p-10 text-center text-sm text-[#64748b]">Loading ideas…</div>
         ) : results.error ? (
           <div role="alert" className="rounded-[16px] border border-[#e4e9f0] bg-white p-10 text-center">
             <p className="mb-3 text-sm text-[#334155]">{apiErrorMessage(results.error, 'Could not load the Pitch Board.')}</p>
             <button type="button" onClick={results.reload} className={secondaryButton}>Try again</button>
           </div>
-        ) : data?.content.length ? (
+        ) : displayContent.length ? (
           <>
             <div className="grid grid-cols-1 gap-[24px] md:grid-cols-2 lg:grid-cols-3">
-              {data.content.map((idea) => (
+              {displayContent.map((idea) => (
                 <IdeaCard key={idea.id} idea={idea} signInToSave={!user} bookmark={user ? {
                   saved: savedIds.has(idea.id), disabled: !bookmarks.data || bookmarks.saving,
                   toggle: () => void bookmarks.toggle(idea.id),
                 } : undefined} />
               ))}
             </div>
-            {data.totalPages > 1 && (
+            {totalPages > 1 && (
               <nav aria-label="Idea pages" className="mt-7 flex flex-wrap items-center justify-center gap-3">
-                <button type="button" className={secondaryButton} disabled={data.page === 0} onClick={() => setPage(data.page - 1)}>Previous</button>
-                <span className="text-sm text-[#64748b]">Page {data.page + 1} of {data.totalPages}</span>
-                <button type="button" className={secondaryButton} disabled={data.page + 1 >= data.totalPages} onClick={() => setPage(data.page + 1)}>Next</button>
+                <button type="button" className={secondaryButton} disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>Previous</button>
+                <span className="text-sm text-[#64748b]">Page {currentPage + 1} of {totalPages}</span>
+                <button type="button" className={secondaryButton} disabled={currentPage + 1 >= totalPages} onClick={() => setPage(currentPage + 1)}>Next</button>
               </nav>
             )}
           </>
@@ -189,6 +226,7 @@ export default function PitchBoardPage() {
             <p className="font-display text-[18px] font-bold text-[#0f1b2d]">{query || tag ? 'No matching ideas' : 'No published ideas yet'}</p>
             <div className="mt-5 flex flex-wrap justify-center gap-3">
               {(query || tag || page > 0) && <button type="button" onClick={clearFilters} className={secondaryButton}>Show all ideas</button>}
+              {matchPreferences && <Link href={investorPreferencesHref('/investor-interests', matchPreferences)} className={secondaryButton}>Change interests</Link>}
               {canPublish && <Link href="/publish" className="inline-flex items-center gap-1.5 rounded-[10px] bg-[#4865ff] px-4 py-2 font-sans text-[13px] font-semibold text-white hover:bg-[#3144aa]">
                 <IconPlus size={14} /> Publish idea
               </Link>}
