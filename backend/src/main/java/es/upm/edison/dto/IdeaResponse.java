@@ -25,12 +25,15 @@ public record IdeaResponse(
         boolean feedbackEnabled,
         Set<UserRole> allowedCommenterRoles,
         List<IdeaTag> tags,
+        List<String> metrics,
+        boolean hasMetrics,
         UserResponse founder,
         List<AttachmentResponse> screenshots,
         Instant createdAt,
         Instant publishedAt) {
 
-    public static IdeaResponse from(Idea idea, List<AttachmentResponse> screenshots) {
+    public static IdeaResponse from(Idea idea, List<AttachmentResponse> screenshots, boolean includeMetrics) {
+        List<String> metrics = List.copyOf(idea.getMetrics());
         return new IdeaResponse(
                 idea.getId(),
                 idea.getTitle(),
@@ -44,6 +47,8 @@ public record IdeaResponse(
                 idea.isFeedbackEnabled(),
                 Set.copyOf(idea.getAllowedCommenterRoles()),
                 idea.getTags().stream().sorted().toList(),
+                includeMetrics ? metrics : List.of(),
+                !metrics.isEmpty(),
                 UserResponse.from(idea.getFounder()),
                 screenshots,
                 idea.getCreatedAt(),

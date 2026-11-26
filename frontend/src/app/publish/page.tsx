@@ -8,6 +8,7 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { IdeaCard } from '@/components/pitch-board/IdeaCard';
 import { AnonymousPublishingPreview, anonymousPreviewAuthor, type AnonymousPreviewMode } from '@/components/publish/AnonymousPublishingPreview';
 import { DraftScreenshotGallery } from '@/components/publish/DraftScreenshotGallery';
+import { TractionMetricsEditor } from '@/components/ideas/TractionMetricsEditor';
 import { Tag } from '@/components/ui/Tag';
 import { IconBulb, IconCheck, IconClose, IconGlobe, IconLink, IconLock, IconUpload } from '@/components/ui/Icons';
 import type { DevelopmentStage, Idea, IdeaTag, UserRole, Visibility } from '@/types';
@@ -107,6 +108,7 @@ function PublishWizard({ user, initialDraft, initialStep }: { user: AuthUser; in
   const [industries, setIndustries] = useState<IdeaTag[]>(initialDraft?.tags ?? []);
   const [stage, setStage] = useState<DevelopmentStage | null>(initialDraft?.developmentStage ?? null);
   const [mvpUrl, setMvpUrl] = useState(initialDraft?.mvpUrl ?? '');
+  const [metrics, setMetrics] = useState(initialDraft?.metrics ?? []);
   const [feedbackEnabled, setFeedbackEnabled] = useState(initialDraft?.feedbackEnabled ?? true);
   const [allowedRoles, setAllowedRoles] = useState<UserRole[]>(initialDraft?.allowedCommenterRoles ?? COMMENT_ROLES);
   const [visibility, setVisibility] = useState<Visibility>(initialDraft?.visibility ?? 'PUBLIC');
@@ -204,7 +206,7 @@ function PublishWizard({ user, initialDraft, initialStep }: { user: AuthUser; in
       return;
     }
     await write(async () => {
-      const updated = await saveClassification(draft.id, { tags: industries, developmentStage: stage });
+      const updated = await saveClassification(draft.id, { tags: industries, developmentStage: stage, metrics });
       setDraft(updated);
       if ((updated.mvpUrl ?? '') !== link) setDraft(await saveMvpLink(draft.id, link));
       goTo(3);
@@ -592,7 +594,7 @@ function PublishWizard({ user, initialDraft, initialStep }: { user: AuthUser; in
                     Categorize &amp; showcase your progress
                   </h2>
                   <p className="mt-1 font-sans text-[14px] text-[#64748b]">
-                    Select your industry, current development stage, and any optional prototype links.
+                    Select your industry and current stage, then add optional prototype links and traction metrics.
                   </p>
                 </div>
 
@@ -728,6 +730,8 @@ function PublishWizard({ user, initialDraft, initialStep }: { user: AuthUser; in
                     </div>
                   </div>
 
+                  <TractionMetricsEditor metrics={metrics} onChange={setMetrics} disabled={busy} />
+
                 </div>
 
                 {/* Step 2 Footer */}
@@ -838,6 +842,14 @@ function PublishWizard({ user, initialDraft, initialStep }: { user: AuthUser; in
                         <strong className="text-[#0f1b2d]">MVP URL: </strong>
                         <span className="text-[#4865ff]">{mvpUrl}</span>
                       </div>
+                    </div>
+                  )}
+                  {metrics.length > 0 && (
+                    <div className="border-t border-[#e4e9f0] pt-[12px]">
+                      <strong className="text-[13px] text-[#0f1b2d]">Traction metrics</strong>
+                      <ul className="mt-2 space-y-1">
+                        {metrics.map((metric, index) => <li key={`${index}-${metric}`} className="text-[13px] text-[#334155]">• {metric}</li>)}
+                      </ul>
                     </div>
                   )}
                 </div>

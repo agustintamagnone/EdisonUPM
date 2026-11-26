@@ -9,6 +9,7 @@ DROP TABLE IF EXISTS saved_ideas;
 DROP TABLE IF EXISTS comments;
 DROP TABLE IF EXISTS attachments;
 DROP TABLE IF EXISTS idea_allowed_commenter_roles;
+DROP TABLE IF EXISTS idea_metrics;
 DROP TABLE IF EXISTS idea_stage;
 DROP TABLE IF EXISTS idea_tags;
 DROP TABLE IF EXISTS ideas;
@@ -68,6 +69,15 @@ CREATE TABLE idea_stage (
   PRIMARY KEY (idea_id),
   CONSTRAINT fk_stage_idea FOREIGN KEY (idea_id) REFERENCES ideas (id) ON DELETE CASCADE,
   CONSTRAINT ck_stage_status CHECK (stage IN ('CONCEPT', 'PROTOTYPE', 'MVP_LIVE'))
+) ENGINE = InnoDB;
+
+-- Idea.metrics : ordered optional traction metrics (0..5)
+CREATE TABLE idea_metrics (
+  idea_id       CHAR(36)     NOT NULL,
+  display_order INT          NOT NULL,
+  metric        VARCHAR(200) NOT NULL,
+  PRIMARY KEY (idea_id, display_order),
+  CONSTRAINT fk_metrics_idea FOREIGN KEY (idea_id) REFERENCES ideas (id) ON DELETE CASCADE
 ) ENGINE = InnoDB;
 
 -- Idea.allowedCommenterRoles : Set<UserRole>

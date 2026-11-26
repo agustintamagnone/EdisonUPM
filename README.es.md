@@ -34,10 +34,11 @@ Otros paquetes: `dto` (peticiones/respuestas JSON), `exception` (errores y `Glob
 | GET | `/api/development-stages` | Etapas disponibles (`CONCEPT`, `PROTOTYPE`, `MVP_LIVE`) |
 | GET | `/api/ideas?q=&tag=&page=&size=` | Explorar/buscar ideas publicadas |
 | GET | `/api/ideas/mine` | Mis ideas |
-| GET | `/api/ideas/{id}` | Detalle de una idea |
+| GET | `/api/ideas/{id}` | Detalle de una idea (las métricas solo se devuelven a usuarios autenticados) |
 | POST | `/api/ideas` | Paso 1 – crear borrador (Basics) |
 | PUT | `/api/ideas/{id}/basics` | Paso 1 – editar Basics |
-| PUT | `/api/ideas/{id}/classification` | Paso 2 – tags (1-2) y etapa de desarrollo |
+| PUT | `/api/ideas/{id}/classification` | Paso 2 – tags, etapa de desarrollo y métricas de tracción opcionales |
+| PUT | `/api/ideas/{id}/metrics` | Añadir o editar hasta cinco métricas de tracción de una idea propia |
 | PUT / DELETE | `/api/ideas/{id}/mvp-link` | Paso 2 – enlace MVP |
 | POST | `/api/ideas/{id}/publish` | Paso 3 – publicar (errores agrupados por paso: `basics`, `mvpProof`, `review`) |
 | POST | `/api/ideas/{id}/archive` | Archivar |
@@ -155,6 +156,18 @@ mysql --login-path=edison edison_upm -e "source database/01_schema.sql"
 ```
 
 > ⚠️ Este script **borra y recrea** las tablas. Úsalo para inicializar, no sobre datos reales.
+
+Para una base de datos existente, ejecuta `database/03_idea_metrics.sql` para añadir la tabla de métricas opcionales sin borrar los datos:
+
+```bash
+mysql --login-path=edison edison_upm < database/03_idea_metrics.sql
+```
+
+En PowerShell:
+
+```powershell
+mysql --login-path=edison edison_upm -e "source database/03_idea_metrics.sql"
+```
 
 ### 4. (Opcional) Datos de ejemplo
 

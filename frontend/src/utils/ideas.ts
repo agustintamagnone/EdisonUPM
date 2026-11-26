@@ -62,6 +62,9 @@ export function saveBasics(id: string | null, basics: IdeaBasics) {
 export const saveClassification = (id: string, data: IdeaClassification) =>
   writeJson<Idea>(`${ideaPath(id)}/classification`, 'PUT', data);
 
+export const saveIdeaMetrics = (id: string, metrics: string[]) =>
+  writeJson<Idea>(`${ideaPath(id)}/metrics`, 'PUT', { metrics });
+
 export const saveMvpLink = (id: string, mvpUrl: string) =>
   mvpUrl
     ? writeJson<Idea>(`${ideaPath(id)}/mvp-link`, 'PUT', { mvpUrl })

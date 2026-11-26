@@ -7,12 +7,13 @@ import { useParams } from 'next/navigation';
 import { TopNav } from '@/components/layout/TopNav';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { RatingPreview } from '@/components/ideas/RatingPreview';
+import { TractionMetricsEditor } from '@/components/ideas/TractionMetricsEditor';
 import { Tag } from '@/components/ui/Tag';
-import { IconArrowLeft, IconBookmark, IconCheck, IconExternal, IconMessage } from '@/components/ui/Icons';
-import type { DevelopmentStage, UserRole } from '@/types';
+import { IconArrowLeft, IconBookmark, IconCheck, IconExternal, IconLock, IconMessage } from '@/components/ui/Icons';
+import type { DevelopmentStage, Idea, UserRole } from '@/types';
 import { ApiError, apiErrorMessage, apiUrl } from '@/utils/api';
 import { formatDate, initials, ROLE_LABELS, STAGE_LABELS, STATUS_LABELS, VISIBILITY_LABELS } from '@/utils/ideaDisplay';
-import { getComments, getIdea, isIdeaId, postComment } from '@/utils/ideas';
+import { getComments, getIdea, isIdeaId, postComment, saveIdeaMetrics } from '@/utils/ideas';
 import { loginHref } from '@/utils/loginNavigation';
 import { useApiResource } from '@/utils/useApiResource';
 import { useSavedIdeas } from '@/utils/useSavedIdeas';
@@ -40,7 +41,8 @@ function IdeaDetails({ ideaId }: { ideaId: string }) {
   const detail = useApiResource(validId && !isRestoring ? loadIdea : null, userId);
   const requiresSignIn = detail.error instanceof ApiError && detail.error.status === 401;
   const signInUrl = loginHref(validId ? `/ideas/${ideaId}` : '/pitch-board');
-  const idea = detail.data;
+  const [ideaOverride, setIdeaOverride] = useState<{ idea: Idea; userId: string } | null>(null);
+  const idea = ideaOverride && ideaOverride.userId === userId ? ideaOverride.idea : detail.data;
   const isPublished = idea?.status === 'PUBLISHED';
   const isOwner = !!user && user.id === idea?.founder.id;
   const canComment = !!user && isPublished && !!idea &&
@@ -54,6 +56,10 @@ function IdeaDetails({ ideaId }: { ideaId: string }) {
   const [commentInput, setCommentInput] = useState('');
   const [commentError, setCommentError] = useState('');
   const [commentPending, setCommentPending] = useState(false);
+  const [metricsEditing, setMetricsEditing] = useState(false);
+  const [metricsDraft, setMetricsDraft] = useState<string[]>([]);
+  const [metricsPending, setMetricsPending] = useState(false);
+  const [metricsError, setMetricsError] = useState('');
   const [showToast, setShowToast] = useState(false);
   const requestKey = useRef<{ content: string; userId: string; id: string } | null>(null);
 
@@ -96,6 +102,37 @@ function IdeaDetails({ ideaId }: { ideaId: string }) {
     }
   }
 
+  function startMetricsEdit() {
+    if (!idea) return;
+    setMetricsDraft(idea.metrics);
+    setMetricsError('');
+    setMetricsEditing(true);
+  }
+
+  function cancelMetricsEdit() {
+    setMetricsDraft([]);
+    setMetricsError('');
+    setMetricsEditing(false);
+  }
+
+  async function saveMetrics() {
+    if (!user || !idea || !isOwner || !isPublished || metricsPending) return;
+    setMetricsPending(true);
+    setMetricsError('');
+    try {
+      const updated = await saveIdeaMetrics(idea.id, metricsDraft);
+      setIdeaOverride({ idea: updated, userId: user.id });
+      setMetricsEditing(false);
+    } catch (error) {
+      setMetricsError(apiErrorMessage(error, 'Could not save traction metrics.'));
+      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+        await refreshSession();
+      }
+    } finally {
+      setMetricsPending(false);
+    }
+  }
+
   if (validId && (isRestoring || detail.loading)) {
     return (
       <div className="min-h-screen bg-[#f4f7fa]">
@@ -135,6 +172,21 @@ function IdeaDetails({ ideaId }: { ideaId: string }) {
   const selectedIndex = Math.min(activeThumb, galleryImages.length - 1);
   const selectedImage = galleryImages[selectedIndex];
   const imageFailed = selectedImage && failedImages.includes(selectedImage.id);
+  const metricsEditor = (
+    <div className="space-y-3">
+      <TractionMetricsEditor metrics={metricsDraft} onChange={setMetricsDraft} disabled={metricsPending} />
+      {metricsError && <p role="alert" className="text-sm text-red-700">{metricsError}</p>}
+      <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={() => void saveMetrics()} disabled={metricsPending} className={primary}>
+          {metricsPending ? 'Saving…' : 'Save metrics'}
+        </button>
+        <button type="button" onClick={cancelMetricsEdit} disabled={metricsPending}
+          className="rounded-[10px] border border-[#e4e9f0] bg-white px-4 py-2.5 text-sm font-semibold text-[#334155] hover:bg-[#f4f7fa] disabled:opacity-50">
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-[#f4f7fa] pb-20">
@@ -338,8 +390,69 @@ function IdeaDetails({ ideaId }: { ideaId: string }) {
                 })}
               </div>
 
+              {isOwner && isPublished && !idea.hasMetrics && (
+                <div className="border-t border-[#e4e9f0] pt-4">
+                  {metricsEditing ? metricsEditor : (
+                    <button type="button" onClick={startMetricsEdit} className={smallLink}>Add traction metrics</button>
+                  )}
+                </div>
+              )}
             </section>
 
+            {idea.hasMetrics && (
+              <section aria-labelledby="key-metrics-title" className="rounded-[16px] border border-[#e4e9f0] bg-white p-[24px] shadow-card sm:p-[28px]">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                  <h2 id="key-metrics-title" className="flex items-center gap-2 font-display text-[20px] font-bold text-[#0f1b2d]">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-[8px] bg-[#e8ebfe] text-[#4865ff]" aria-hidden="true">
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M2.5 12.5L6 8.5L8.5 10.5L13.5 4.5M10 4.5H13.5V8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </span>
+                    Key metrics
+                  </h2>
+                  <div className="flex items-center gap-3">
+                    {user && <span className="inline-flex items-center gap-1 text-[11px] text-[#64748b]"><IconLock size={12} />Shown because you&apos;re signed in</span>}
+                    {isOwner && isPublished && user && (
+                      <button type="button" onClick={metricsEditing ? cancelMetricsEdit : startMetricsEdit}
+                        className="text-xs font-semibold text-[#4865ff] hover:underline">
+                        {metricsEditing ? 'Cancel editing' : 'Edit'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {user ? metricsEditing && isOwner && isPublished ? metricsEditor : (
+                  <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {idea.metrics.map((metric, index) => (
+                      <li key={`${index}-${metric}`} className="flex min-h-[44px] items-center gap-2 rounded-[10px] bg-[#f4f7fa] px-3 py-2.5 text-[13px] text-[#0f1b2d]">
+                        <span className="shrink-0 text-[#4865ff]" aria-hidden="true">↗</span>
+                        <span className="break-words">{metric}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="relative overflow-hidden rounded-[12px] border border-dashed border-[#cbd5e1] bg-[#f4f7fa] p-4">
+                    <div aria-hidden="true" className="grid grid-cols-2 gap-2 blur-[5px]">
+                      {[0, 1, 2, 3].map((item) => (
+                        <div key={item} className="flex h-10 items-center gap-2 rounded-[8px] bg-white px-3">
+                          <span className="h-3 w-3 rounded-sm bg-[#cbd5e1]" />
+                          <span className="h-2 w-3/4 rounded bg-[#cbd5e1]" />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="absolute inset-0 flex items-center justify-center bg-white/75 p-3 backdrop-blur-[2px]">
+                      <div className="max-w-sm text-center">
+                        <h3 className="flex items-center justify-center gap-2 text-sm font-bold text-[#0f1b2d]">
+                          <IconLock size={14} />Sign in to see {idea.title}&apos;s key metrics
+                        </h3>
+                        <p className="mt-1 text-[11px] leading-4 text-[#64748b]">Metrics are shown only to signed-in students, faculty and investors.</p>
+                        <Link href={signInUrl} className={`${primary} mt-2 min-h-8 px-4 py-1.5 text-xs`}>Sign in</Link>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </section>
+            )}
 
             {isPublished && <RatingPreview />}
             {isPublished && (
