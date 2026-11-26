@@ -3,6 +3,7 @@ package es.upm.edison.service;
 import es.upm.edison.dto.AttachmentResponse;
 import es.upm.edison.dto.IdeaBasicsRequest;
 import es.upm.edison.dto.IdeaClassificationRequest;
+import es.upm.edison.dto.IdeaMetricsRequest;
 import es.upm.edison.dto.IdeaResponse;
 import es.upm.edison.dto.IdeaSummaryResponse;
 import es.upm.edison.dto.MvpLinkRequest;
@@ -50,6 +51,8 @@ public class IdeaService {
     static final int ELEVATOR_PITCH_MAX = 300;
     static final int LONG_TEXT_MAX = 2000;
     static final int MAX_TAGS = 3;
+    static final int MAX_METRICS = 5;
+    static final int METRIC_MAX_LENGTH = 200;
     static final int MVP_URL_MAX = 2048;
 
     /** Error groups match the steps of the publication wizard. */
@@ -96,7 +99,7 @@ public class IdeaService {
     @Transactional(readOnly = true)
     public IdeaResponse getIdea(UUID ideaId, UUID currentUserId) {
         User viewer = userRepository.findCurrent(currentUserId).orElse(null);
-        return toResponse(IdeaAccess.loadVisible(ideaRepository, ideaId, viewer));
+        return toResponse(IdeaAccess.loadVisible(ideaRepository, ideaId, viewer), viewer != null);
     }
 
     @Transactional(readOnly = true)
@@ -148,6 +151,30 @@ public class IdeaService {
 
         idea.setTags(tags.isEmpty() ? EnumSet.noneOf(IdeaTag.class) : EnumSet.copyOf(tags));
         idea.setDevelopmentStage(request.developmentStage());
+        if (request.metrics() != null) {
+            List<String> metricErrors = validateMetrics(request.metrics());
+            if (!metricErrors.isEmpty()) {
+                throw new ValidationException(Map.of(STEP_MVP_PROOF, metricErrors));
+            }
+            idea.setMetrics(normalizeMetrics(request.metrics()));
+        }
+        return toResponse(idea);
+    }
+
+    public IdeaResponse updateMetrics(UUID ideaId, UUID currentUserId, IdeaMetricsRequest request) {
+        User user = userRepository.requireCurrent(currentUserId);
+        Idea idea = IdeaAccess.load(ideaRepository, ideaId);
+        if (!idea.isFoundedBy(user)) {
+            throw new ForbiddenException("Only the founder can edit this idea");
+        }
+        if (idea.getStatus() == IdeaStatus.ARCHIVED) {
+            throw new ValidationException("status", "Archived ideas cannot be edited");
+        }
+        List<String> metricErrors = validateMetrics(request.metrics());
+        if (!metricErrors.isEmpty()) {
+            throw new ValidationException(Map.of("metrics", metricErrors));
+        }
+        idea.setMetrics(normalizeMetrics(request.metrics()));
         return toResponse(idea);
     }
 
@@ -248,6 +275,30 @@ public class IdeaService {
         return errors;
     }
 
+    private List<String> validateMetrics(List<String> metrics) {
+        List<String> errors = new ArrayList<>();
+        if (metrics == null) {
+            errors.add("Metrics must be provided as a list");
+            return errors;
+        }
+        if (metrics.size() > MAX_METRICS) {
+            errors.add("An idea can have at most " + MAX_METRICS + " metrics");
+        }
+        for (int index = 0; index < metrics.size(); index++) {
+            String metric = metrics.get(index);
+            if (metric == null || metric.isBlank()) {
+                errors.add("Metric " + (index + 1) + " cannot be empty");
+            } else if (metric.trim().length() > METRIC_MAX_LENGTH) {
+                errors.add("Metric " + (index + 1) + " must have at most " + METRIC_MAX_LENGTH + " characters");
+            }
+        }
+        return errors;
+    }
+
+    private List<String> normalizeMetrics(List<String> metrics) {
+        return metrics.stream().map(String::trim).toList();
+    }
+
     private static void requireText(List<String> errors, String field, String value, int maxLength) {
         if (value == null || value.isBlank()) {
             errors.add(field + " is required");
@@ -284,10 +335,14 @@ public class IdeaService {
     }
 
     private IdeaResponse toResponse(Idea idea) {
+        return toResponse(idea, true);
+    }
+
+    private IdeaResponse toResponse(Idea idea, boolean includeMetrics) {
         List<AttachmentResponse> screenshots = idea.getId() == null ? List.of()
                 : attachmentRepository.findByIdeaIdOrderByDisplayOrderAsc(idea.getId()).stream()
                         .map(AttachmentResponse::from)
                         .toList();
-        return IdeaResponse.from(idea, screenshots);
+        return IdeaResponse.from(idea, screenshots, includeMetrics);
     }
 }

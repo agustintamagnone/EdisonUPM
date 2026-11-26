@@ -12,12 +12,15 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OrderColumn;
 import jakarta.persistence.Table;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -49,6 +52,12 @@ public class Idea {
     /** External MVP link (HTTP/HTTPS). Optional. */
     @Column(name = "mvp_url", length = 2048)
     private String mvpUrl;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "idea_metrics", joinColumns = @JoinColumn(name = "idea_id"))
+    @OrderColumn(name = "display_order")
+    @Column(name = "metric", nullable = false, length = 200)
+    private List<String> metrics = new ArrayList<>();
 
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.VARCHAR)
@@ -145,6 +154,11 @@ public class Idea {
     public void setContact(String contact) { this.contact = contact; }
     public String getMvpUrl() { return mvpUrl; }
     public void setMvpUrl(String mvpUrl) { this.mvpUrl = mvpUrl; }
+    public List<String> getMetrics() { return metrics; }
+    public void setMetrics(List<String> metrics) {
+        this.metrics.clear();
+        this.metrics.addAll(metrics);
+    }
     public IdeaStatus getStatus() { return status; }
     public void setStatus(IdeaStatus status) { this.status = status; }
     public Visibility getVisibility() { return visibility; }

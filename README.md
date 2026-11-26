@@ -34,10 +34,11 @@ Other packages: `dto` (JSON requests/responses), `exception` (errors and `Global
 | GET | `/api/development-stages` | Available stages (`CONCEPT`, `PROTOTYPE`, `MVP_LIVE`) |
 | GET | `/api/ideas?q=&tag=&page=&size=` | Browse/search published ideas |
 | GET | `/api/ideas/mine` | My ideas |
-| GET | `/api/ideas/{id}` | Idea details |
+| GET | `/api/ideas/{id}` | Idea details (traction metrics are returned only to signed-in users) |
 | POST | `/api/ideas` | Step 1 – create draft (Basics) |
 | PUT | `/api/ideas/{id}/basics` | Step 1 – edit Basics |
-| PUT | `/api/ideas/{id}/classification` | Step 2 – tags (1-2) and development stage |
+| PUT | `/api/ideas/{id}/classification` | Step 2 – tags, development stage and optional traction metrics |
+| PUT | `/api/ideas/{id}/metrics` | Add or edit up to five traction metrics on your idea |
 | PUT / DELETE | `/api/ideas/{id}/mvp-link` | Step 2 – MVP link |
 | POST | `/api/ideas/{id}/publish` | Step 3 – publish (errors grouped by step: `basics`, `mvpProof`, `review`) |
 | POST | `/api/ideas/{id}/archive` | Archive |
@@ -155,6 +156,18 @@ mysql --login-path=edison edison_upm -e "source database/01_schema.sql"
 ```
 
 > ⚠️ This script **drops and recreates** the tables. Use it to initialize, not on real data.
+
+For an existing database, apply `database/03_idea_metrics.sql` to add the optional metrics table without dropping existing data:
+
+```bash
+mysql --login-path=edison edison_upm < database/03_idea_metrics.sql
+```
+
+In PowerShell:
+
+```powershell
+mysql --login-path=edison edison_upm -e "source database/03_idea_metrics.sql"
+```
 
 ### 4. (Optional) Sample data
 

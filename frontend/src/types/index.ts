@@ -34,6 +34,8 @@ export interface Idea extends IdeaSummary {
   problemStatement: string;
   solutionDescription: string;
   mvpUrl: string | null;
+  metrics: string[];
+  hasMetrics: boolean;
   feedbackEnabled: boolean;
   allowedCommenterRoles: UserRole[];
   screenshots: Attachment[];
@@ -71,6 +73,7 @@ export interface IdeaBasics {
 export interface IdeaClassification {
   tags: IdeaTag[];
   developmentStage: DevelopmentStage;
+  metrics: string[];
 }
 
 export interface PublishIdeaRequest {

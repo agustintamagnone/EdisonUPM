@@ -65,6 +65,7 @@ npm run start
 | --- | --- |
 | `/` | EDISON UPM landing page |
 | `/pitch-board` | Browse published ideas |
+| `/investor-interests` | Set an investor's matchmaking interests |
 | `/ideas/[ideaId]` | View an idea by its backend UUID |
 | `/publish` | Publish an idea |
 | `/my-ideas` | Open and manage your drafts, published ideas, and archived ideas |
@@ -85,9 +86,9 @@ public/assets/           # Logos, illustrations, and other static assets
 
 Set `NEXT_PUBLIC_API_BASE_URL=http://localhost:8080` in `.env.local` and start the Spring Boot backend before running the frontend. Use `localhost` for both browser origins and keep the frontend origin in the backend CORS allowlist. The frontend sends the browser session cookie and obtains a CSRF token for authenticated writes.
 
-The Pitch Board uses the backend's published-date order, zero-based pagination, text search, and single-tag filtering. Idea links use UUIDs. Students can save a draft in Basics, resume it from My Ideas, upload up to five screenshots, and publish after choosing visibility and feedback permissions.
+The Pitch Board uses the backend's published-date order, zero-based pagination, text search, and single-tag filtering. Investor matchmaking loads the matching published ideas and ranks them by matching industry tags (two points each) and development stage (one point), with newest publication breaking ties. Investor preferences are carried in the URL; ticket size and help preferences are collected but do not affect ranking because ideas do not yet expose comparable fields. Idea links use UUIDs. Students can save a draft in Basics, resume it from My Ideas, upload up to five screenshots, add up to five optional traction metrics, and publish after choosing visibility and feedback permissions. Metric text is returned only to authenticated users; anonymous idea details expose only whether metrics exist so the UI can show its sign-in prompt.
 
-The backend currently exposes no ratings, helpful votes, view counts, aggregate bookmark counts, or anonymous posting. Stage-based browsing, alternate sort orders, founder biographies, and school details also have no API fields or controls. The frontend uses the available development stage, visibility, founder role, and comment count. Previously browser-local demo content is no longer shown.
+The backend currently exposes no ratings, helpful votes, view counts, aggregate bookmark counts, or anonymous posting. Investor matching runs in the frontend; the API does not provide founder biographies or school details. The frontend uses the available development stage, visibility, founder role, and comment count. Previously browser-local demo content is no longer shown.
 
 ## Demonstrations and future backend contracts
 

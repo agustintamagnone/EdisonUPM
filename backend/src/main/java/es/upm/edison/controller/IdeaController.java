@@ -3,6 +3,7 @@ package es.upm.edison.controller;
 import es.upm.edison.config.CurrentUser;
 import es.upm.edison.dto.IdeaBasicsRequest;
 import es.upm.edison.dto.IdeaClassificationRequest;
+import es.upm.edison.dto.IdeaMetricsRequest;
 import es.upm.edison.dto.IdeaResponse;
 import es.upm.edison.dto.IdeaSummaryResponse;
 import es.upm.edison.dto.MvpLinkRequest;
@@ -91,6 +92,13 @@ public class IdeaController {
                                              @PathVariable UUID ideaId,
                                              @RequestBody IdeaClassificationRequest request) {
         return ideaService.updateClassification(ideaId, CurrentUser.id(principal), request);
+    }
+
+    @PutMapping("/ideas/{ideaId}/metrics")
+    public IdeaResponse updateMetrics(Principal principal,
+                                     @PathVariable UUID ideaId,
+                                     @RequestBody IdeaMetricsRequest request) {
+        return ideaService.updateMetrics(ideaId, CurrentUser.id(principal), request);
     }
 
     @PutMapping("/ideas/{ideaId}/mvp-link")

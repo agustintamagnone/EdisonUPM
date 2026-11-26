@@ -113,7 +113,8 @@ class IdeaLifecycleIntegrationTest {
                                 .andExpect(status().isBadRequest());
                 mvc.perform(put("/api/ideas/{id}/classification", ideaId).with(csrf()).session(founderSession)
                                 .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"tags\":[\"SOFTWARE\",\"GREEN_TECH\"],\"developmentStage\":\"CONCEPT\"}"))
+                                .content("{\"tags\":[\"SOFTWARE\",\"GREEN_TECH\"],\"developmentStage\":\"CONCEPT\","
+                                                + "\"metrics\":[\"20s needed for setting up the dashboard\"]}"))
                                 .andExpect(status().isOk());
                 // Exactly 3 industry tags are allowed
                 mvc.perform(put("/api/ideas/{id}/classification", ideaId).with(csrf())
@@ -128,7 +129,8 @@ class IdeaLifecycleIntegrationTest {
                                 .content("{\"tags\":[\"SOFTWARE\",\"GREEN_TECH\"],\"developmentStage\":\"PROTOTYPE\"}"))
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.developmentStage").value("PROTOTYPE"))
-                                .andExpect(jsonPath("$.tags.length()").value(2));
+                                .andExpect(jsonPath("$.tags.length()").value(2))
+                                .andExpect(jsonPath("$.metrics[0]").value("20s needed for setting up the dashboard"));
 
                 mvc.perform(multipart("/api/ideas/{id}/attachments", ideaId)
                                 .file(new MockMultipartFile("file", "fake.png", "image/png", "not an image".getBytes())).with(csrf())
@@ -154,7 +156,8 @@ class IdeaLifecycleIntegrationTest {
                                 .contentType(MediaType.APPLICATION_JSON).content(publish))
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.status").value("PUBLISHED"))
-                                .andExpect(jsonPath("$.screenshots.length()").value(1));
+                                .andExpect(jsonPath("$.screenshots.length()").value(1))
+                                .andExpect(jsonPath("$.metrics.length()").value(1));
 
                 // Anonymous users can browse PUBLIC ideas (by text and by tag) and see the
                 // screenshot
@@ -166,7 +169,28 @@ class IdeaLifecycleIntegrationTest {
                 mvc.perform(get("/api/ideas").param("tag", "HEALTH_TECH"))
                                 .andExpect(jsonPath("$.content[*].id", not(hasItem(ideaId))));
                 mvc.perform(get("/api/ideas/{id}", ideaId))
-                                .andExpect(jsonPath("$.developmentStage").value("PROTOTYPE"));
+                                .andExpect(jsonPath("$.developmentStage").value("PROTOTYPE"))
+                                .andExpect(jsonPath("$.hasMetrics").value(true))
+                                .andExpect(jsonPath("$.metrics.length()").value(0));
+                mvc.perform(get("/api/ideas/{id}", ideaId).session(otherSession))
+                                .andExpect(jsonPath("$.metrics[0]").value("20s needed for setting up the dashboard"));
+                mvc.perform(put("/api/ideas/{id}/metrics", ideaId).with(csrf()).session(otherSession)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"metrics\":[\"Not the founder\"]}"))
+                                .andExpect(status().isForbidden());
+                mvc.perform(put("/api/ideas/{id}/metrics", ideaId).with(csrf()).session(founderSession)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"metrics\":[\"1\",\"2\",\"3\",\"4\",\"5\",\"6\"]}"))
+                                .andExpect(status().isUnprocessableEntity());
+                mvc.perform(put("/api/ideas/{id}/metrics", ideaId).with(csrf()).session(founderSession)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"metrics\":[\"20s needed for setting up the dashboard\","
+                                                + "\"3 residences signed a pilot\"]}"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.metrics.length()").value(2));
+                mvc.perform(get("/api/ideas/{id}", ideaId))
+                                .andExpect(jsonPath("$.metrics.length()").value(0))
+                                .andExpect(jsonPath("$.hasMetrics").value(true));
                 MvcResult attachments = mvc.perform(get("/api/ideas/{id}/attachments", ideaId))
                                 .andExpect(status().isOk()).andReturn();
                 String fileUrl = JsonPath.read(attachments.getResponse().getContentAsString(), "$[0].url");
@@ -242,7 +266,9 @@ class IdeaLifecycleIntegrationTest {
 
                 mvc.perform(get("/api/ideas/{id}", ideaId)).andExpect(status().isUnauthorized());
                 mvc.perform(get("/api/ideas/{id}", ideaId).session(professorSession))
-                                .andExpect(status().isOk());
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.hasMetrics").value(false))
+                                .andExpect(jsonPath("$.metrics.length()").value(0));
 
                 // Feedback disabled: others cannot comment, the founder can
                 mvc.perform(post("/api/ideas/{id}/comments", ideaId).with(csrf()).session(professorSession)

@@ -15,11 +15,26 @@ async function writeJson<T>(path: ApiPath, method: WriteMethod, body?: object): 
   return apiJson<T>(path, { method, headers, body: body ? JSON.stringify(body) : undefined });
 }
 
-export function listIdeas(q: string, tag: IdeaTag | null, page: number, signal?: AbortSignal) {
-  const params = new URLSearchParams({ page: String(page), size: '12' });
+function listIdeaPage(q: string, tag: IdeaTag | null, page: number, size: number, signal?: AbortSignal) {
+  const params = new URLSearchParams({ page: String(page), size: String(size) });
   if (q.trim()) params.set('q', q.trim());
   if (tag) params.set('tag', tag);
   return apiJson<PageResponse<IdeaSummary>>(`/api/ideas?${params}`, { signal });
+}
+
+export function listIdeas(q: string, tag: IdeaTag | null, page: number, signal?: AbortSignal) {
+  return listIdeaPage(q, tag, page, 12, signal);
+}
+
+export async function listAllIdeas(q: string, tag: IdeaTag | null, signal?: AbortSignal) {
+  const firstPage = await listIdeaPage(q, tag, 0, 50, signal);
+  if (firstPage.totalPages < 2) return firstPage.content;
+
+  const remainingPages = await Promise.all(
+    Array.from({ length: firstPage.totalPages - 1 }, (_, index) =>
+      listIdeaPage(q, tag, index + 1, 50, signal)),
+  );
+  return [...firstPage.content, ...remainingPages.flatMap((page) => page.content)];
 }
 
 export const getTags = (signal?: AbortSignal) => apiJson<IdeaTag[]>('/api/tags', { signal });
@@ -46,6 +61,9 @@ export function saveBasics(id: string | null, basics: IdeaBasics) {
 
 export const saveClassification = (id: string, data: IdeaClassification) =>
   writeJson<Idea>(`${ideaPath(id)}/classification`, 'PUT', data);
+
+export const saveIdeaMetrics = (id: string, metrics: string[]) =>
+  writeJson<Idea>(`${ideaPath(id)}/metrics`, 'PUT', { metrics });
 
 export const saveMvpLink = (id: string, mvpUrl: string) =>
   mvpUrl
