@@ -1,0 +1,132 @@
+@startuml Component_Diagram_Sprint_3
+' Edison UPM - Component diagram updated with the Metrics component (Sprint 3, task 3.1.6, US 3.1)
+' Changes vs Sprint 2:
+'  - NEW Metrics component: records idea views and contact clicks, serves the founder's dashboard
+'  - Sprint 2 as implemented: matchmaking was built inside Ideas (GET /api/ideas?tag=...&stage=...,
+'    ranked by matching tags), so the separate Matchmaking component of the Sprint 2 design is removed.
+'    Contact is the free-text field ideas.contact, also inside Ideas.
+' ELK layout: orthogonal routing where each arrow gets its own track (no overlapping lines)
+!pragma layout elk
+title Edison UPM - Component Diagram (Sprint 3: Metrics)
+
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam dpi 130
+skinparam packageStyle rectangle
+skinparam component {
+  BackgroundColor #F1F1F1
+  BorderColor #555555
+}
+skinparam component<<new>> {
+  BackgroundColor #FFF4D6
+  BorderColor #B8860B
+}
+skinparam component<<Sprint 2>> {
+  BackgroundColor #E8F0FB
+  BorderColor #4A6FA5
+}
+skinparam interface {
+  BackgroundColor #FFFFFF
+  BorderColor #555555
+}
+skinparam package {
+  BorderColor #333333
+  FontStyle bold
+}
+skinparam note {
+  BackgroundColor #FFFFFF
+  BorderColor #555555
+}
+skinparam ArrowColor #333333
+<style>
+component {
+  MinimumWidth 230
+}
+</style>
+
+actor "Platform User\n(Student / Professor / Investor)" as PlatformUser
+actor "Founder" as Founder
+
+package "Client Application (View)" as CLIENT {
+  component "Web Client (Frontend, Next.js)\n\nREST calls over HTTP / JSON\n(multipart for image uploads)\nsession cookie + CSRF token" as WebClient
+}
+
+package "Backend Application" as BACKEND {
+  interface "Auth API" as IAuth
+  interface "Ideas API" as IIdeas
+  interface "Attachments\nAPI" as IAttachments
+  interface "Comments API" as IComments
+  interface "Users API" as IUsers
+  interface "Metrics API" as IMetrics
+
+  component "Auth\n\nAuthController\nSecurityConfig\n(Spring Security)" <<Sprint 2>> as Auth
+  component "Ideas\n\nIdeaController\nIdeaService\nIdeaRepository\n(search by tags and stage,\ncontact)" <<Sprint 2>> as Ideas
+  component "Attachments\n\nAttachmentController\nAttachmentService\nAttachmentRepository" as Attachments
+  component "Comments\n\nCommentController\nCommentService\nCommentRepository" as Comments
+  component "Users\n\nUserController\nUserService\nUserRepository" as Users
+  component "Metrics\n\nMetricsController\nMetricsService\nIdeaViewRepository\nContactClickRepository" <<new>> as Metrics
+
+  Auth -up- IAuth
+  Ideas -up- IIdeas
+  Attachments -up- IAttachments
+  Comments -up- IComments
+  Users -up- IUsers
+  Metrics -up- IMetrics
+}
+
+package "Infrastructure" as INFRA {
+  database "Relational Database\n(MySQL)" as DB
+  folder "Image Storage" as IMG
+}
+
+' --- client side ---
+PlatformUser --> WebClient
+Founder --> WebClient
+WebClient ..> IAuth : login / logout
+WebClient ..> IIdeas
+WebClient ..> IAttachments
+WebClient ..> IComments
+WebClient ..> IUsers
+WebClient ..> IMetrics : record view /\ncontact click,\nload dashboard
+
+' --- dependencies between backend components (service -> repository in the MVC) ---
+Auth ..> Users : find user,\ncheck password
+Attachments ..> Ideas : load draft,\ncheck founder
+Ideas ..> Attachments : count screenshots\nbefore publishing
+Comments ..> Ideas : idea status and\nfeedback settings
+Comments ..> Users : comment author
+Ideas ..> Users : founder
+Users ..> Ideas : saved ideas
+Metrics ..> Ideas : idea exists, is PUBLISHED\nand visible; founder check
+Metrics ..> Users : viewer and role
+
+' --- infrastructure ---
+Ideas --> DB : SQL
+Attachments --> DB : SQL
+Comments --> DB : SQL
+Users --> DB : SQL
+Metrics --> DB : SQL\n(idea_views,\ncontact_clicks)
+Attachments --> IMG : image files
+
+note right of Metrics
+  <b>New in US 3.1 / 3.2</b>
+  POST /api/ideas/{id}/views
+  POST /api/ideas/{id}/contact-clicks
+  GET  /api/ideas/{id}/metrics?period=
+  (7d, 30d or all)
+  (founder or administrator only;
+  must require authentication in SecurityConfig,
+  which today lets every GET /api/** through)
+  A failed recording call never blocks
+  the idea page.
+end note
+
+legend right
+  |= Colour |= Meaning |
+  |<#F1F1F1> | Sprint 1 (unchanged) |
+  |<#E8F0FB> | Changed in Sprint 2, implemented |
+  |<#FFF4D6> | Sprint 3, new design (US 3.1) |
+endlegend
+
+@enduml

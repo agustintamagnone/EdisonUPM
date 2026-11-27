@@ -1,0 +1,118 @@
+@startuml Founder_Views_Idea_Metrics
+' Edison UPM - Founder views the metrics of an idea (Sprint 3, task 3.2.4, US 3.2 Metrics visualization)
+' Design proposal. Uses GET /api/ideas/{id}/metrics?period= and the model of task 3.1.4.
+title Edison UPM - Founder Views the Metrics of an Idea (Sprint 3)
+
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam dpi 130
+skinparam ActivityBackgroundColor #F1F1F1
+skinparam ActivityBorderColor #555555
+skinparam ActivityDiamondBackgroundColor #FFFFFF
+skinparam ActivityDiamondBorderColor #555555
+skinparam SwimlaneBorderColor #333333
+skinparam SwimlaneTitleFontStyle bold
+skinparam ArrowColor #333333
+skinparam note {
+  BackgroundColor #FFFFFF
+  BorderColor #555555
+}
+
+|Founder|
+start
+:Open "My ideas";
+
+|Frontend|
+:Load own ideas
+<size:10><i>GET /api/ideas/mine</i></size>;
+:Show the list with a "Metrics"
+button on each idea;
+note right
+  Drafts show the button disabled:
+  "Publish the idea to collect metrics".
+  ARCHIVED ideas keep their metrics.
+end note
+
+|Founder|
+:Select "Metrics" on an idea;
+
+|Frontend|
+:Set period = last 30 days (default);
+
+repeat
+  |Frontend|
+  :Request metrics
+  <size:10><i>GET /api/ideas/{id}/metrics?period=</i></size>;
+
+  |Backend|
+  if (Signed in?) then (no)
+    :Return 401;
+    |Frontend|
+    :Go to login;
+    stop
+  else (yes)
+  endif
+
+  |Backend|
+  if (Idea exists?) then (no)
+    :Return 404;
+    |Frontend|
+    :Show "Idea not found";
+    stop
+  else (yes)
+  endif
+
+  |Backend|
+  if (Founder of the idea\nor ADMINISTRATOR?) then (no)
+    :Return 403;
+    |Frontend|
+    :Show "Only the founder can
+    see these metrics";
+    stop
+  else (yes)
+  endif
+
+  |Backend|
+  if (Idea is a DRAFT?) then (yes)
+    :Return 422
+    "Drafts have no metrics";
+    |Frontend|
+    :Show "Publish the idea
+    to collect metrics";
+    stop
+  else (no)
+  endif
+
+  |Backend|
+  :Aggregate views, unique viewers,
+  contact clicks and view-to-contact
+  rate for the period
+  <size:10><i>MetricsService</i></size>;
+  :Return metrics (200);
+
+  |Frontend|
+  if (Any views in the period?) then (no)
+    :Show empty state
+    "No views yet - share your idea";
+  else (yes)
+    :Show KPI cards (views, unique viewers,
+    contact clicks, view-to-contact rate
+    compared with the 10% goal)
+    and the views-per-day chart;
+  endif
+
+  |Founder|
+backward:Choose another period
+(7 days, 30 days, all time);
+repeat while (Change period?) is (yes) not (no)
+
+|Founder|
+stop
+
+note right
+  An administrator can open the same
+  metrics page from the idea detail
+  (same endpoint, same rules).
+end note
+@enduml

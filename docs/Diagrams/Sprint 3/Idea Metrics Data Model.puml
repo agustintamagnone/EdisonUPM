@@ -1,0 +1,166 @@
+@startuml Idea_Metrics_Data_Model
+' Edison UPM - Idea metrics data model (Sprint 3, task 3.1.4, US 3.1 Ideas metrics)
+' Design proposal (not implemented yet). Stores the two events needed for the
+' Hypothesis 3 metric (view-to-contact rate). The contact of an idea is the free-text
+' field ideas.contact (Sprint 2, feature/contact), so a contact click has no "type":
+' it is the click on the idea's "Contact" button that shows that text.
+' Metrics are aggregated on request from these two tables; no totals table is stored.
+
+title Edison UPM - Idea Metrics Data Model (Sprint 3)
+
+skinparam linetype polyline
+skinparam ArrowColor #333333
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam dpi 130
+skinparam nodesep 80
+skinparam ranksep 90
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor #F1F1F1
+  BorderColor #555555
+  AttributeFontSize 11
+}
+skinparam package {
+  BorderColor #333333
+  FontStyle bold
+}
+skinparam note {
+  BackgroundColor #FFFFFF
+  BorderColor #555555
+}
+hide circle
+hide empty methods
+
+' ================= CLASS MODEL (backend) =================
+package "Class model (backend)" as CLASSES {
+
+  class Idea <<Sprint 1>> {
+    id : UUID
+    status : IdeaStatus
+    contact : String [0..1]
+    .. other attributes omitted ..
+  }
+
+  class User <<Sprint 1>> {
+    id : UUID
+    role : UserRole
+  }
+
+  class IdeaView <<new>> {
+    id : UUID
+    viewedOn : Date
+    viewedAt : DateTime
+  }
+
+  class ContactClick <<new>> {
+    id : UUID
+    clickedOn : Date
+    clickedAt : DateTime
+  }
+
+  class IdeaMetrics <<computed, not stored>> {
+    period : MetricsPeriod
+    views : long
+    uniqueViewers : long
+    contactClicks : long
+    viewToContactRate : Double [0..1]
+    viewsPerDay : List<DailyCount>
+  }
+
+  enum MetricsPeriod {
+    LAST_7_DAYS = "7d"
+    LAST_30_DAYS = "30d"
+    ALL_TIME = "all"
+  }
+
+  IdeaView "0..*" -up-> "1" Idea : idea
+  IdeaView "0..*" --> "0..1" User : viewer
+  ContactClick "0..*" -up-> "1" Idea : idea
+  ContactClick "0..*" --> "1" User : user
+  IdeaMetrics ..> IdeaView : <<aggregates>>
+  IdeaMetrics ..> ContactClick : <<aggregates>>
+  IdeaMetrics --> "1" MetricsPeriod : period
+
+  note as NRules
+    <b>Rules (checked by MetricsService)</b>
+    Only PUBLISHED ideas the user can see are counted.
+    The founder's own views and clicks are not recorded,
+    and neither are administrators'.
+    Max. 1 view and 1 click per user, idea and day
+    (repeats that day are ignored).
+    Guests: a view is stored with no viewer and is not
+    de-duplicated; a contact click needs a signed-in user.
+    Recording never blocks opening the idea.
+  end note
+
+  note as NFormula
+    <b>Hypothesis 3 metric</b> (per period)
+    viewToContactRate =
+      distinct users with a ContactClick
+      ÷ distinct signed-in viewers
+    Guest views count in "views" only.
+    No signed-in viewers → rate is empty ("–").
+    Goal: rate >= 10%.
+  end note
+
+  NRules -[hidden]down- NFormula
+}
+
+' ================= ER MODEL (MySQL) =================
+package "ER model (MySQL)" as TABLES {
+
+  class ideas <<table>> {
+    id : CHAR(36) <<PK>>
+    founder_id : CHAR(36) <<FK>>
+    .. other columns omitted ..
+  }
+
+  class users <<table>> {
+    id : CHAR(36) <<PK>>
+    .. other columns omitted ..
+  }
+
+  class idea_views <<table, new>> {
+    id : CHAR(36) <<PK>>
+    idea_id : CHAR(36) <<FK>>
+    viewer_id : CHAR(36) NULL <<FK>>
+    viewed_on : DATE
+    viewed_at : DATETIME(6)
+    --
+    UNIQUE (idea_id, viewer_id, viewed_on)
+    INDEX (idea_id, viewed_at)
+  }
+
+  class contact_clicks <<table, new>> {
+    id : CHAR(36) <<PK>>
+    idea_id : CHAR(36) <<FK>>
+    user_id : CHAR(36) <<FK>>
+    clicked_on : DATE
+    clicked_at : DATETIME(6)
+    --
+    UNIQUE (idea_id, user_id, clicked_on)
+    INDEX (idea_id, clicked_at)
+  }
+
+  ideas "1" *-- "0..*" idea_views : ON DELETE CASCADE
+  ideas "1" *-- "0..*" contact_clicks : ON DELETE CASCADE
+  users "0..1" -- "0..*" idea_views : ON DELETE SET NULL
+  users "1" -- "0..*" contact_clicks : ON DELETE CASCADE
+}
+
+IdeaView .down.> idea_views : <<persisted in>>
+ContactClick .down.> contact_clicks : <<persisted in>>
+
+note bottom of idea_views
+  The UNIQUE key gives "1 view per user,
+  idea and day". MySQL allows repeated NULLs
+  in it, so guest views are all kept.
+end note
+
+note bottom of contact_clicks
+  user_id is NOT NULL: only signed-in
+  users can click "Contact".
+end note
+@enduml

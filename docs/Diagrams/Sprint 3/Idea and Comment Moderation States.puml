@@ -1,0 +1,83 @@
+@startuml Idea_and_Comment_Moderation_States
+' Edison UPM - Idea and comment moderation statuses (Sprint 3, task 3.3.7, US 3.3 Admin idea and comment management)
+' Design proposal. Starts from the statuses implemented in Sprint 1:
+'  - IdeaStatus DRAFT, PUBLISHED, ARCHIVED (model/IdeaStatus.java, IdeaService.publish/archive)
+'  - CommentStatus VISIBLE, DELETED (model/CommentStatus.java, soft delete in CommentService)
+' and adds HIDDEN_BY_ADMIN to both. Only an ADMINISTRATOR can enter or leave it.
+
+title Edison UPM - Idea and Comment Moderation Statuses (Sprint 3)
+
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam dpi 130
+skinparam ArrowColor #333333
+skinparam state {
+  BackgroundColor #F1F1F1
+  BorderColor #555555
+}
+skinparam state<<new>> {
+  BackgroundColor #FFF4D6
+  BorderColor #B8860B
+}
+skinparam note {
+  BackgroundColor #FFFFFF
+  BorderColor #555555
+}
+
+state "Idea" as IDEA {
+  state "DRAFT" as I_DRAFT : Only the founder sees it
+  state "PUBLISHED" as I_PUB : Visible by its visibility\n(PUBLIC / UPM_COMMUNITY)
+  state "ARCHIVED" as I_ARCH : Only the founder sees it
+  state "HIDDEN_BY_ADMIN" as I_HIDDEN <<new>> : Only the founder and\nadministrators see it
+
+  [*] --> I_DRAFT : founder creates draft
+  I_DRAFT --> I_DRAFT : founder edits steps
+  I_DRAFT --> I_PUB : founder publishes\n[all steps valid]
+  I_PUB --> I_ARCH : founder archives
+  I_PUB --> I_HIDDEN : <b>admin hides</b>\n[reason given]
+  I_HIDDEN --> I_PUB : <b>admin restores</b>\n[reason given]
+  I_ARCH --> [*]
+}
+
+state "Comment" as COMMENT {
+  state "VISIBLE" as C_VIS : Listed on the idea
+  state "DELETED" as C_DEL : Soft delete: kept in DB,\nnot listed
+  state "HIDDEN_BY_ADMIN" as C_HIDDEN <<new>> : Not listed; the author sees\n"Hidden by moderation"
+
+  [*] --> C_VIS : user posts comment
+  C_VIS --> C_VIS : author edits
+  C_VIS --> C_DEL : author deletes
+  C_VIS --> C_HIDDEN : <b>admin hides</b>\n[reason given]
+  C_HIDDEN --> C_VIS : <b>admin restores</b>\n[reason given]
+  C_DEL --> [*]
+}
+
+note bottom of IDEA
+  <b>While an idea is HIDDEN_BY_ADMIN</b>
+  Left out of browse and search; others get 404.
+  The founder sees it with a banner and the reason,
+  but cannot edit or archive it until it is restored.
+  Its comments are kept; no new comments or metrics.
+  DRAFT and ARCHIVED ideas are not public,
+  so they are not moderated.
+end note
+
+note bottom of COMMENT
+  <b>Rules</b>
+  The author cannot edit or delete a hidden comment.
+  A DELETED comment cannot be hidden or restored.
+  Hiding an idea does not change its comments' statuses.
+end note
+
+legend right
+  |= Colour |= Meaning |
+  |<#F1F1F1> | Implemented (Sprint 1) |
+  |<#FFF4D6> | New in Sprint 3 (US 3.3) |
+  | <b>bold</b> | Only an ADMINISTRATOR |
+  Every admin action needs a reason (10..500 characters),
+  shown to the founder or author.
+  Database: CHECK on ideas.status and comments.status
+  must add 'HIDDEN_BY_ADMIN'.
+endlegend
+@enduml
