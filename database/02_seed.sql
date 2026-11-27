@@ -23,7 +23,7 @@ INSERT INTO ideas (id, founder_id, title, elevator_pitch, problem_statement, sol
   ('a0000000-0000-0000-0000-000000000002', '22222222-2222-2222-2222-222222222222',
    'StudyBuddy AI', 'An AI tutor trained on UPM course material.',
    'Students lack personalised help outside office hours.',
-   'A chat assistant that answers questions using the course notes.','carlos.ruiz@alumnos.upm.es'
+   'A chat assistant that answers questions using the course notes.','carlos.ruiz@alumnos.upm.es',
    NULL, 'DRAFT', 'PUBLIC', TRUE, UTC_TIMESTAMP(6), NULL);
 
 INSERT INTO idea_tags (idea_id, tag) VALUES

@@ -1,6 +1,7 @@
 package es.upm.edison.repository;
 
 import es.upm.edison.model.Idea;
+import es.upm.edison.model.DevelopmentStage;
 import es.upm.edison.model.IdeaStatus;
 import es.upm.edison.model.IdeaTag;
 import es.upm.edison.model.Visibility;
@@ -17,15 +18,41 @@ public interface IdeaRepository extends JpaRepository<Idea, UUID> {
 
     List<Idea> findByFounderIdOrderByCreatedAtDesc(UUID founderId);
 
-    /** Browse and search published ideas. {@code query} and {@code tag} are optional filters. */
+    /** Browse published ideas without tag filtering. Text and stage filters are optional. */
     @Query("""
-            select distinct i from Idea i left join i.tags t
+            select i from Idea i
             where i.status = :status
               and i.visibility in :visibilities
-              and (:tag is null or t = :tag)
+              and (:stage is null or :stage member of i.stage)
               and (:query is null
                    or lower(i.title) like lower(concat('%', :query, '%'))
                    or lower(i.elevatorPitch) like lower(concat('%', :query, '%')))
             """)
-    Page<Idea> search(IdeaStatus status, Collection<Visibility> visibilities, IdeaTag tag, String query, Pageable pageable);
+    Page<Idea> search(IdeaStatus status, Collection<Visibility> visibilities,
+                      DevelopmentStage stage, String query, Pageable pageable);
+
+    /** Match any selected tag and rank by matches, then newest publication. */
+    @Query(value = """
+            select i from Idea i join i.tags t
+            where i.status = :status
+              and i.visibility in :visibilities
+              and t in :tags
+              and (:stage is null or :stage member of i.stage)
+              and (:query is null
+                   or lower(i.title) like lower(concat('%', :query, '%'))
+                   or lower(i.elevatorPitch) like lower(concat('%', :query, '%')))
+            group by i
+            order by count(t) desc, i.publishedAt desc, i.id asc
+            """, countQuery = """
+            select count(distinct i.id) from Idea i join i.tags t
+            where i.status = :status
+              and i.visibility in :visibilities
+              and t in :tags
+              and (:stage is null or :stage member of i.stage)
+              and (:query is null
+                   or lower(i.title) like lower(concat('%', :query, '%'))
+                   or lower(i.elevatorPitch) like lower(concat('%', :query, '%')))
+            """)
+    Page<Idea> searchByTags(IdeaStatus status, Collection<Visibility> visibilities,
+                            Collection<IdeaTag> tags, DevelopmentStage stage, String query, Pageable pageable);
 }
