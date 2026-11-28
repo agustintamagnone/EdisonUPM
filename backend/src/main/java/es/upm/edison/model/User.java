@@ -32,6 +32,9 @@ public class User {
     @Column(name = "password_hash", nullable = false, length = 60)
     private String passwordHash;
 
+    @Column(name = "blocked", nullable = false)
+    private boolean blocked;
+
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(nullable = false, length = 20)
@@ -40,11 +43,12 @@ public class User {
     protected User() {
     }
 
-    public User(String fullName, String email, UserRole role, String passwordHash) {
+    public User(String fullName, String email, UserRole role, String passwordHash, boolean blocked) {
         this.fullName = fullName;
         this.email = email;
         this.role = role;
         this.passwordHash = passwordHash;
+        this.blocked = blocked;
     }
 
     public UUID getId() { return id; }
@@ -54,4 +58,6 @@ public class User {
     public void setEmail(String email) { this.email = email; }
     public UserRole getRole() { return role; }
     public String getPasswordHash() { return passwordHash; }
+    public boolean isBlocked() { return blocked; }
+    public void setBlocked(boolean blocked) { this.blocked = blocked; }
 }
