@@ -2,7 +2,10 @@ package es.upm.edison.service;
 
 import es.upm.edison.dto.IdeaSummaryResponse;
 import es.upm.edison.dto.UpdateProfileRequest;
+import es.upm.edison.dto.UpdateUserBlockedRequest;
+import es.upm.edison.dto.UpdateUserBlockedResponse;
 import es.upm.edison.dto.UserResponse;
+import es.upm.edison.exception.ForbiddenException;
 import es.upm.edison.exception.NotFoundException;
 import es.upm.edison.exception.ValidationException;
 import es.upm.edison.model.Idea;
@@ -55,6 +58,21 @@ public class UserService {
         User user = userRepository.requireCurrent(currentUserId);
         user.setFullName(request.fullName().trim());
         return UserResponse.from(user);
+    }
+
+    public UpdateUserBlockedResponse updateBlocked(UUID userId, UUID currentUserId, UpdateUserBlockedRequest request) {
+        User administrator = userRepository.requireCurrent(currentUserId);
+        if (!administrator.isAdministrator()) {
+            throw new ForbiddenException("Only administrators can block or unblock users");
+        }
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new NotFoundException("User not found"));
+        if (request.blocked() && user.isAdministrator()) {
+            throw new ValidationException("blocked", "Administrators cannot be blocked");
+        }
+        user.setBlocked(request.blocked());
+        String message = user.isBlocked() ? "User blocked successfully" : "User unblocked successfully";
+        return new UpdateUserBlockedResponse(message, UserResponse.from(user));
     }
 
     // ---------- Founders and mentors ----------

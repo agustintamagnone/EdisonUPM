@@ -124,11 +124,18 @@ public class Idea {
     }
 
     /**
-     * Administrators and the founder always see the idea. Everybody else only sees PUBLISHED ideas:
+     * Administrators see all ideas. A blocked founder's ideas are hidden from everybody else.
+     * Otherwise, founders see their own ideas and other viewers only see PUBLISHED ideas:
      * PUBLIC ones without logging in, UPM_COMMUNITY ones only as an authenticated Student or Professor.
      */
     public boolean isVisibleTo(User viewer) {
-        if ((viewer != null && viewer.isAdministrator()) || isFoundedBy(viewer)) {
+        if (viewer != null && viewer.isAdministrator()) {
+            return true;
+        }
+        if (founder.isBlocked()) {
+            return false;
+        }
+        if (isFoundedBy(viewer)) {
             return true;
         }
         if (status != IdeaStatus.PUBLISHED) {

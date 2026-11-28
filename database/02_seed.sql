@@ -9,7 +9,8 @@ INSERT INTO users (id, full_name, email, role, password_hash, blocked) VALUES
   ('22222222-2222-2222-2222-222222222222', 'Carlos Ruiz',   'carlos.ruiz@alumnos.upm.es',  'STUDENT', '$2a$10$PDYn7y.lkCZahYv8TXpueuadGTy/1bvCQsT0MfC6rafEpiUIm.87y', 0),
   ('33333333-3333-3333-3333-333333333333', 'Elena Gomez',   'elena.gomez@upm.es',          'PROFESSOR', '$2a$10$PDYn7y.lkCZahYv8TXpueuadGTy/1bvCQsT0MfC6rafEpiUIm.87y', 0),
   ('44444444-4444-4444-4444-444444444444', 'Admin Edison',  'admin.edison@upm.es',         'ADMINISTRATOR', '$2a$10$PDYn7y.lkCZahYv8TXpueuadGTy/1bvCQsT0MfC6rafEpiUIm.87y', 0),
-  ('55555555-5555-5555-5555-555555555555', 'Javier Ortega', 'javier.ortega@example.com',   'INVESTOR', '$2a$10$PDYn7y.lkCZahYv8TXpueuadGTy/1bvCQsT0MfC6rafEpiUIm.87y', 0);
+  ('55555555-5555-5555-5555-555555555555', 'Javier Ortega', 'javier.ortega@example.com',   'INVESTOR', '$2a$10$PDYn7y.lkCZahYv8TXpueuadGTy/1bvCQsT0MfC6rafEpiUIm.87y', 0),
+  ('66666666-6666-6666-6666-666666666666', 'Paco Jones', 'paco.jones@example.com',   'STUDENT', '$2a$10$PDYn7y.lkCZahYv8TXpueuadGTy/1bvCQsT0MfC6rafEpiUIm.87y', 1);
 
 -- One published idea with a comment, and one draft
 INSERT INTO ideas (id, founder_id, title, elevator_pitch, problem_statement, solution_description, contact,

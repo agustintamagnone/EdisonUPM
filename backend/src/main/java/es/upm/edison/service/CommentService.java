@@ -53,7 +53,7 @@ public class CommentService {
         Idea idea = loadForComments(ideaId, viewer);
         List<Comment> storedComments = viewer != null && viewer.isAdministrator()
                 ? commentRepository.findByIdeaIdOrderByCreatedAtDesc(idea.getId())
-                : commentRepository.findByIdeaIdAndStatusOrderByCreatedAtDesc(idea.getId(), CommentStatus.VISIBLE);
+                : commentRepository.findByIdeaIdAndStatusAndAuthorBlockedFalseOrderByCreatedAtDesc(idea.getId(), CommentStatus.VISIBLE);
         List<CommentResponse> comments = storedComments.stream()
                 .map(CommentResponse::from)
                 .toList();
@@ -62,18 +62,20 @@ public class CommentService {
 
     public CommentResponse create(UUID ideaId, UUID currentUserId, CommentRequest request) {
         User author = userRepository.requireCurrent(currentUserId);
+        Idea idea = loadForComments(ideaId, author);
+        checkCanComment(idea, author);
 
         // Idempotent request: the same clientRequestId returns the comment already created.
         if (request.clientRequestId() != null) {
             Optional<Comment> existing = commentRepository.findByAuthorIdAndClientRequestId(author.getId(), request.clientRequestId());
             if (existing.isPresent()) {
+                if (!existing.get().getIdea().getId().equals(ideaId)) {
+                    throw new ValidationException("clientRequestId", "This creation key belongs to another idea");
+                }
                 return CommentResponse.from(existing.get());
             }
         }
 
-        // Verify visibility, permitted state, commenter permissions and content.
-        Idea idea = loadForComments(ideaId, author);
-        checkCanComment(idea, author);
         String content = validateContent(request.content());
 
         Comment comment = new Comment(idea, author, content, request.clientRequestId());
@@ -118,7 +120,8 @@ public class CommentService {
 
     private Comment loadManageableComment(UUID commentId, User user) {
         Comment comment = commentRepository.findById(commentId)
-                .filter(c -> user.isAdministrator() || c.getStatus() == CommentStatus.VISIBLE)
+                .filter(c -> user.isAdministrator() || (c.getStatus() == CommentStatus.VISIBLE
+                        && !c.getAuthor().isBlocked() && !c.getIdea().getFounder().isBlocked()))
                 .orElseThrow(() -> new NotFoundException("Comment not found"));
         if (!comment.isWrittenBy(user) && !user.isAdministrator()) {
             throw new ForbiddenException("Only the author or an administrator can modify this comment");

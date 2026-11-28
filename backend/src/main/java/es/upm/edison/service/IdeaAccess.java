@@ -25,7 +25,7 @@ final class IdeaAccess {
     static Idea loadVisible(IdeaRepository ideas, UUID ideaId, User viewer) {
         Idea idea = load(ideas, ideaId);
         if (!idea.isVisibleTo(viewer)) {
-            if (idea.getStatus() == IdeaStatus.PUBLISHED && viewer == null) {
+            if (idea.getStatus() == IdeaStatus.PUBLISHED && viewer == null && !idea.getFounder().isBlocked()) {
                 throw new UnauthorizedException("This idea is only visible to the UPM community. Please log in.");
             }
             throw new NotFoundException("Idea unavailable");

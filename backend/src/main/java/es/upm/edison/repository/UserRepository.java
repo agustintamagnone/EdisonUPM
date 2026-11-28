@@ -27,6 +27,6 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     List<User> findByRoleInOrderByFullNameAsc(List<UserRole> roles);
 
-    @Query("select distinct i.founder from Idea i where i.status = :status order by i.founder.fullName")
+    @Query("select distinct i.founder from Idea i where i.status = :status and i.founder.blocked = false order by i.founder.fullName")
     List<User> findFoundersWithIdeasIn(IdeaStatus status);
 }

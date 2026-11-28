@@ -51,6 +51,7 @@ Other packages: `dto` (JSON requests/responses), `exception` (errors and `Global
 | PUT | `/api/comments/{commentId}` | Author/admin: edit a comment; `200` with a message and the updated comment |
 | DELETE | `/api/comments/{commentId}` | Author/admin: permanently delete a comment; `200` with ID and confirmation message |
 | GET / PUT | `/api/users/me` | Own profile |
+| PUT | `/api/users/{id}/blocked` | Administrator: block/unblock a user; returns confirmation and the updated user |
 | GET / PUT / DELETE | `/api/users/me/saved-ideas[/{ideaId}]` | Saved ideas |
 | GET | `/api/users/founders`, `/api/users/mentors`, `/api/users/{id}` | Founders, mentors, profiles |
 
@@ -106,6 +107,26 @@ The role comes from the authenticated user stored in the database. Administrator
 - Validation, sessions and CSRF still apply. Other roles retain their existing permissions; public endpoints remain accessible anonymously.
 
 No schema migration or separate administrator endpoints are needed. For a manual check, log in as `admin.edison@upm.es` with `EdisonDemo2026!` and `UPM_ACCOUNT` using the session/CSRF instructions below, then use the same endpoints against another user's content.
+
+### Blocking and unblocking users
+
+An administrator can send `PUT /api/users/{id}/blocked` with their session, the current CSRF header and a JSON body:
+
+```json
+{"blocked": true}
+```
+
+It returns `200` with `message: "User blocked successfully"` and `user`, containing the updated user, including `blocked: true`. Send `{"blocked": false}` to unblock; the message becomes `"User unblocked successfully"`. Repeating the same request succeeds with the same state.
+
+- Administrators cannot be blocked, including by themselves: `422` with `errors.blocked`. Other roles receive `403`; an anonymous request with valid CSRF receives `401`. A missing user returns `404`; an omitted, null or invalid `blocked` field returns `400`.
+- Blocked accounts cannot log in: they receive the same `401` as incorrect credentials. On the next valid request from an existing session, Spring Security closes that session, clears its cookie and returns `401`. The check reads the current MySQL state without maintaining a custom session registry.
+- Their ideas are hidden from non-administrators in searches, matchmaking, bookmarks, details, screenshots and files. Their comments are excluded from lists and counts, including on other users' ideas. Comments by any author underneath a hidden idea are also unavailable. The public founders list excludes blocked accounts; profiles retain their format and `blocked` field.
+- Administrators retain access to hidden content for moderation. Blocking does not delete rows, bookmarks or image files, or change `IdeaStatus`, `CommentStatus`, dates or publication permissions.
+- Unblocking allows login again and restores the previous content visibility: drafts and archived ideas retain their usual restrictions. Sessions that were closed are not restored.
+
+The existing `users.blocked` column is reused; no schema update or database recreation is required. The seed includes five active accounts and one blocked test account.
+
+To check manually, log in as a student and as the administrator in separate clients. Block the student as administrator: verify `401` for the student's session and a new login, and confirm their ideas/comments disappear for visitors while remaining accessible to the administrator. Unblock the account and repeat login and browsing: the content should reappear without data loss.
 
 ## MySQL database – step-by-step guide
 
@@ -286,7 +307,7 @@ Login accepts **application/x-www-form-urlencoded**, not JSON: `email`, `passwor
 - `UPM_ACCOUNT`: stored roles STUDENT, PROFESSOR and ADMINISTRATOR.
 - `EXTERNAL_USER`: stored role INVESTOR.
 
-The access option only checks the account type; it never assigns a role. Neither login nor profile updates allow role changes. Responses never contain passwords or hashes. Unknown email, incorrect password, or missing/mismatched option return the same 401 error.
+The access option only checks the account type; it never assigns a role. Neither login nor profile updates allow role changes. Responses never contain passwords or hashes. Unknown email, incorrect password, blocked account, or missing/mismatched option return the same 401 error.
 
 `X-User-Id` is ignored. Public GET endpoints remain anonymous and permissions are checked in the services. ADMINISTRATOR logs in via UPM_ACCOUNT and can manage all ideas and comments, including UPM_COMMUNITY content; students and professors retain community access, while investors see public publications.
 
@@ -342,6 +363,9 @@ All fictional accounts use **`EdisonDemo2026!`**, exclusively for local developm
 | elena.gomez@upm.es | UPM_ACCOUNT | PROFESSOR |
 | admin.edison@upm.es | UPM_ACCOUNT | ADMINISTRATOR |
 | javier.ortega@example.com | EXTERNAL_USER | INVESTOR |
+| paco.jones@example.com | UPM_ACCOUNT | STUDENT |
+
+The `paco.jones@example.com` account is initially blocked: login returns `401` until an administrator unblocks it. The other five accounts are active.
 
 ### Check login without a frontend (PowerShell)
 
