@@ -26,6 +26,7 @@ CREATE TABLE users (
   email      VARCHAR(254) NOT NULL,
   password_hash VARCHAR(60) NOT NULL,
   role       VARCHAR(20)  NOT NULL,
+  blocked    BOOL         NOT NULL,
   PRIMARY KEY (id),
   UNIQUE KEY uk_users_email (email),
   CONSTRAINT ck_users_role CHECK (role IN ('STUDENT', 'PROFESSOR', 'ADMINISTRATOR', 'INVESTOR'))
