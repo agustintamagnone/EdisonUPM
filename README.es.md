@@ -51,6 +51,7 @@ Otros paquetes: `dto` (peticiones/respuestas JSON), `exception` (errores y `Glob
 | PUT | `/api/comments/{commentId}` | Autor/admin: editar comentario; `200` con mensaje y comentario actualizado |
 | DELETE | `/api/comments/{commentId}` | Autor/admin: borrado definitivo; `200` con ID y mensaje de confirmación |
 | GET / PUT | `/api/users/me` | Perfil propio |
+| GET | `/api/users/{id}/activity` | Administrador: datos, cantidades e ideas/comentarios escritos por un usuario |
 | PUT | `/api/users/{id}/blocked` | Administrador: bloquear/desbloquear un usuario; devuelve confirmación y usuario actualizado |
 | GET / PUT / DELETE | `/api/users/me/saved-ideas[/{ideaId}]` | Ideas guardadas |
 | GET | `/api/users/founders`, `/api/users/mentors`, `/api/users/{id}` | Fundadores, mentores, perfiles |
@@ -107,6 +108,34 @@ El rol se obtiene del usuario autenticado almacenado en la base de datos. El adm
 - Se mantienen las validaciones, las sesiones y CSRF. Los demás roles conservan sus permisos y los endpoints públicos siguen admitiendo acceso anónimo.
 
 No se necesitan migraciones de esquema ni endpoints específicos de administración. Para comprobarlo manualmente, inicia sesión con `admin.edison@upm.es`, contraseña `EdisonDemo2026!` y opción `UPM_ACCOUNT`, siguiendo las instrucciones de sesión/CSRF de abajo, y utiliza los mismos endpoints sobre contenido de otro usuario.
+
+### Ficha de actividad de un usuario
+
+Desde la ficha de un usuario, el administrador puede consultar `GET /api/users/{id}/activity` con su sesión. Devuelve `user` (ID, nombre, email, rol y `blocked`), `ideaCount`, `ideas`, `commentCount` y `comments`. No requiere CSRF porque es una consulta GET.
+
+Las listas son completas y se ordenan por fecha de creación descendente. `ideas` contiene los resúmenes habituales, incluidos borradores, publicaciones, archivadas y contenido oculto por bloqueo; el detalle completo sigue disponible en `GET /api/ideas/{id}`. `comments` contiene los comentarios escritos por ese usuario, también en ideas ajenas, con su contenido, `ideaId` y fechas. Incluye los comentarios antiguos marcados `DELETED`, igual que las demás consultas de administrador. Los contadores corresponden a las listas devueltas.
+
+Ejemplo de un usuario sin actividad:
+
+```json
+{
+  "user": {
+    "id": "66666666-6666-6666-6666-666666666666",
+    "fullName": "Paco Jones",
+    "email": "paco.jones@example.com",
+    "role": "STUDENT",
+    "blocked": true
+  },
+  "ideaCount": 0,
+  "ideas": [],
+  "commentCount": 0,
+  "comments": []
+}
+```
+
+El frontend puede mostrar «Bloquear» o «Desbloquear» según `user.blocked` y utilizar `PUT /api/users/{id}/blocked` con `{"blocked": true}` o `false`, sesión y CSRF. Para `user.role: "ADMINISTRATOR"` no debe ofrecer bloquear; el backend mantiene esa prohibición. Una nueva consulta de actividad refleja el estado actualizado.
+
+Sin sesión devuelve `401`; cualquier otro rol recibe `403`, incluso al consultar su propia actividad. Un usuario inexistente devuelve `404` y un ID malformado `400`. Se mantiene el perfil público `GET /api/users/{id}`. La ficha refleja los datos existentes: los elementos borrados definitivamente desaparecen del listado y del contador. No requiere cambios de base de datos ni configuración adicional.
 
 ### Bloqueo y desbloqueo de usuarios
 

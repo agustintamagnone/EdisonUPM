@@ -51,6 +51,7 @@ Other packages: `dto` (JSON requests/responses), `exception` (errors and `Global
 | PUT | `/api/comments/{commentId}` | Author/admin: edit a comment; `200` with a message and the updated comment |
 | DELETE | `/api/comments/{commentId}` | Author/admin: permanently delete a comment; `200` with ID and confirmation message |
 | GET / PUT | `/api/users/me` | Own profile |
+| GET | `/api/users/{id}/activity` | Administrator: user details, counts and authored ideas/comments |
 | PUT | `/api/users/{id}/blocked` | Administrator: block/unblock a user; returns confirmation and the updated user |
 | GET / PUT / DELETE | `/api/users/me/saved-ideas[/{ideaId}]` | Saved ideas |
 | GET | `/api/users/founders`, `/api/users/mentors`, `/api/users/{id}` | Founders, mentors, profiles |
@@ -107,6 +108,34 @@ The role comes from the authenticated user stored in the database. Administrator
 - Validation, sessions and CSRF still apply. Other roles retain their existing permissions; public endpoints remain accessible anonymously.
 
 No schema migration or separate administrator endpoints are needed. For a manual check, log in as `admin.edison@upm.es` with `EdisonDemo2026!` and `UPM_ACCOUNT` using the session/CSRF instructions below, then use the same endpoints against another user's content.
+
+### Individual user activity
+
+From an individual user's profile, administrators can call `GET /api/users/{id}/activity` with their session. It returns `user` (ID, name, email, role and `blocked`), `ideaCount`, `ideas`, `commentCount` and `comments`. This GET request does not require CSRF.
+
+Lists are complete and ordered by creation date descending. `ideas` uses the existing summaries, including drafts, published and archived ideas and content hidden by blocking; full details remain available at `GET /api/ideas/{id}`. `comments` contains comments written by that user, including on other users' ideas, with their content, `ideaId` and timestamps. Legacy comments marked `DELETED` are included, as in other administrator views. Counts match the returned lists.
+
+Example of a user with no activity:
+
+```json
+{
+  "user": {
+    "id": "66666666-6666-6666-6666-666666666666",
+    "fullName": "Paco Jones",
+    "email": "paco.jones@example.com",
+    "role": "STUDENT",
+    "blocked": true
+  },
+  "ideaCount": 0,
+  "ideas": [],
+  "commentCount": 0,
+  "comments": []
+}
+```
+
+The frontend can show “Block” or “Unblock” according to `user.blocked` and use `PUT /api/users/{id}/blocked` with `{"blocked": true}` or `false`, a session and CSRF. It should not offer blocking for `user.role: "ADMINISTRATOR"`; the backend continues to enforce that rule. A fresh activity request reflects the updated state.
+
+Anonymous requests return `401`; any other role receives `403`, including when viewing their own activity. A missing user returns `404` and a malformed ID returns `400`. The public profile at `GET /api/users/{id}` remains available. The view reflects existing data: permanently deleted content disappears from lists and counts. No database changes or additional configuration are required.
 
 ### Blocking and unblocking users
 
