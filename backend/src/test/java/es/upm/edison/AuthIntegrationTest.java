@@ -35,7 +35,7 @@ class AuthIntegrationTest {
 
     private User createUser(UserRole role) {
         return users.save(new User("Test", UUID.randomUUID() + "@example.com", role,
-                encoder.encode("test-password")));
+                encoder.encode("test-password"), false));
     }
 
     private MvcResult token(MockHttpSession session) throws Exception {
@@ -58,6 +58,7 @@ class AuthIntegrationTest {
                         .param("password", "test-password").param("accountType", option)
                         .param("role", "ADMINISTRATOR"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.role").value(role.name()))
+                .andExpect(jsonPath("$.blocked").value(false))
                 .andExpect(jsonPath("$.passwordHash").doesNotExist()).andReturn();
         var session = (MockHttpSession) result.getRequest().getSession(false);
         mvc.perform(get("/api/users/me").session(session).header("X-User-Id", UUID.randomUUID()))
@@ -148,6 +149,13 @@ class AuthIntegrationTest {
             }
             try (var rows = connection.createStatement().executeQuery("SELECT COUNT(*) FROM comments")) {
                 assertTrue(rows.next()); assertEquals(1, rows.getInt(1));
+            }
+            try (var rows = connection.createStatement().executeQuery(
+                    "SELECT display_order, metric FROM idea_metrics ORDER BY display_order")) {
+                assertTrue(rows.next());
+                assertEquals(0, rows.getInt("display_order"));
+                assertEquals("50 weekly users expected", rows.getString("metric"));
+                assertFalse(rows.next());
             }
             try (var rows = connection.createStatement().executeQuery("SELECT password_hash FROM users")) {
                 int count = 0;

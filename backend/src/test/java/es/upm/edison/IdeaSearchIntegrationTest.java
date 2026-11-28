@@ -13,6 +13,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -78,7 +79,7 @@ class IdeaSearchIntegrationTest {
 
     private User createUser(UserRole role) {
         return users.save(new User("Search tester", UUID.randomUUID() + "@example.com", role,
-                "$2a$10$PDYn7y.lkCZahYv8TXpueuadGTy/1bvCQsT0MfC6rafEpiUIm.87y"));
+                "$2a$10$PDYn7y.lkCZahYv8TXpueuadGTy/1bvCQsT0MfC6rafEpiUIm.87y", false));
     }
 
     private Idea createIdea(String name, int minute, IdeaTag... tags) {
@@ -146,7 +147,7 @@ class IdeaSearchIntegrationTest {
     }
 
     @Test
-    void repeatedTagsDoNotIncreaseScoresOrTheDistinctTagLimit() throws Exception {
+    void repeatedTagsDoNotIncreaseScores() throws Exception {
         mvc.perform(search("SOFTWARE", "GREEN_TECH", "HARDWARE", "SOFTWARE"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[*].id", contains(ids(full, softwareHardware, softwareGreen, software, green))));
@@ -181,11 +182,25 @@ class IdeaSearchIntegrationTest {
                 .andExpect(jsonPath("$.totalElements").value(expected.length));
     }
 
+    @ParameterizedTest
+    @ValueSource(ints = {4, 5, 6})
+    void matchmakingAcceptsMoreThanThreeTagsAndPreservesRanking(int count) throws Exception {
+        String[] selectedTags = java.util.Arrays.stream(IdeaTag.values()).limit(count)
+                .map(Enum::name).toArray(String[]::new);
+        mvc.perform(search(selectedTags))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[*].id", contains(ids(full, softwareHardware, softwareGreen,
+                        health, software, green))))
+                .andExpect(jsonPath("$.totalElements").value(6));
+        mvc.perform(search(selectedTags).param("size", "2").param("page", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[*].id", contains(ids(softwareGreen, health))))
+                .andExpect(jsonPath("$.totalElements").value(6))
+                .andExpect(jsonPath("$.totalPages").value(3));
+    }
+
     @Test
-    void invalidTagsAndMoreThanThreeDistinctTagsAreRejected() throws Exception {
-        mvc.perform(search("SOFTWARE", "GREEN_TECH", "HARDWARE", "HEALTH_TECH"))
-                .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.errors.tag").isArray());
+    void invalidTagsAreRejected() throws Exception {
         mvc.perform(search("UNKNOWN_TAG")).andExpect(status().isBadRequest());
     }
 

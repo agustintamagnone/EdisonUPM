@@ -83,16 +83,26 @@ public class IdeaService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<IdeaSummaryResponse> browse(UUID currentUserId, String query, IdeaTag tag, int page, int size) {
+    public PageResponse<IdeaSummaryResponse> browse(UUID currentUserId, String query, Set<IdeaTag> tags,
+                                                   DevelopmentStage stage, int page, int size) {
+        Set<IdeaTag> selectedTags = tags == null ? Set.of() : tags;
         User viewer = userRepository.findCurrent(currentUserId).orElse(null);
         Set<Visibility> visibilities = Idea.isUpmCommunityMember(viewer)
                 ? Set.of(Visibility.PUBLIC, Visibility.UPM_COMMUNITY)
                 : Set.of(Visibility.PUBLIC);
         String normalizedQuery = (query == null || query.isBlank()) ? null : query.trim();
-        PageRequest pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 50),
-                Sort.by(Sort.Direction.DESC, "publishedAt"));
+        int pageNumber = Math.max(page, 0);
+        int pageSize = Math.min(Math.max(size, 1), 50);
+        if (!selectedTags.isEmpty()) {
+            return PageResponse.from(
+                    ideaRepository.searchByTags(IdeaStatus.PUBLISHED, visibilities, selectedTags, stage, normalizedQuery,
+                            PageRequest.of(pageNumber, pageSize)),
+                    IdeaSummaryResponse::from);
+        }
+        PageRequest pageable = PageRequest.of(pageNumber, pageSize,
+                Sort.by(Sort.Order.desc("publishedAt"), Sort.Order.asc("id")));
         return PageResponse.from(
-                ideaRepository.search(IdeaStatus.PUBLISHED, visibilities, tag, normalizedQuery, pageable),
+                ideaRepository.search(IdeaStatus.PUBLISHED, visibilities, stage, normalizedQuery, pageable),
                 IdeaSummaryResponse::from);
     }
 
@@ -122,6 +132,9 @@ public class IdeaService {
 
         Idea idea = new Idea(founder, request.title().trim(), request.elevatorPitch().trim(),
                 request.problemStatement().trim(), request.solutionDescription().trim());
+        if (request.contact() != null) {
+            idea.setContact(request.contact().trim());
+        }
         return toResponse(ideaRepository.save(idea));
     }
 

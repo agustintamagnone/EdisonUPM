@@ -59,9 +59,9 @@ class IdeaLifecycleIntegrationTest {
         @BeforeEach
         void setUp() throws Exception {
                 String suffix = UUID.randomUUID().toString();
-                founder = userRepository.save(new User("Founder", "founder-" + suffix + "@upm.es", UserRole.STUDENT, encoder.encode("test-password")));
-                otherStudent = userRepository.save(new User("Other", "other-" + suffix + "@upm.es", UserRole.STUDENT, encoder.encode("test-password")));
-                professor = userRepository.save(new User("Prof", "prof-" + suffix + "@upm.es", UserRole.PROFESSOR, encoder.encode("test-password")));
+                founder = userRepository.save(new User("Founder", "founder-" + suffix + "@upm.es", UserRole.STUDENT, encoder.encode("test-password"), false));
+                otherStudent = userRepository.save(new User("Other", "other-" + suffix + "@upm.es", UserRole.STUDENT, encoder.encode("test-password"), false));
+                professor = userRepository.save(new User("Prof", "prof-" + suffix + "@upm.es", UserRole.PROFESSOR, encoder.encode("test-password"), false));
                 founderSession = login(founder);
                 otherSession = login(otherStudent);
                 professorSession = login(professor);
@@ -240,6 +240,41 @@ class IdeaLifecycleIntegrationTest {
                 mvc.perform(put("/api/ideas/{id}/basics", ideaId).with(csrf()).session(founderSession)
                                 .contentType(MediaType.APPLICATION_JSON).content(basics))
                                 .andExpect(status().isUnprocessableEntity());
+        }
+
+        @Test
+        void draftContactIsOptionalAndPersistsWhenProvided() throws Exception {
+                String withoutContact = """
+                                {"title":"Contact test","elevatorPitch":"Pitch",
+                                 "problemStatement":"Problem","solutionDescription":"Solution"}
+                                """;
+                mvc.perform(post("/api/ideas").with(csrf()).session(founderSession)
+                                .contentType(MediaType.APPLICATION_JSON).content(withoutContact))
+                                .andExpect(status().isCreated())
+                                .andExpect(jsonPath("$.contact").doesNotExist());
+
+                MvcResult created = mvc.perform(post("/api/ideas").with(csrf()).session(founderSession)
+                                .contentType(MediaType.APPLICATION_JSON).content("""
+                                                {"title":"Contact test","elevatorPitch":"Pitch",
+                                                 "problemStatement":"Problem","solutionDescription":"Solution",
+                                                 "contact":"  founder@example.com  "}
+                                                """))
+                                .andExpect(status().isCreated())
+                                .andExpect(jsonPath("$.contact").value("founder@example.com"))
+                                .andReturn();
+                String ideaId = JsonPath.read(created.getResponse().getContentAsString(), "$.id");
+                mvc.perform(get("/api/ideas/{id}", ideaId).session(founderSession))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.contact").value("founder@example.com"));
+
+                // Omitting optional contact when editing must preserve the saved value.
+                mvc.perform(put("/api/ideas/{id}/basics", ideaId).with(csrf()).session(founderSession)
+                                .contentType(MediaType.APPLICATION_JSON).content(withoutContact))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.contact").value("founder@example.com"));
+                mvc.perform(get("/api/ideas/{id}", ideaId).session(founderSession))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.contact").value("founder@example.com"));
         }
 
         @Test
