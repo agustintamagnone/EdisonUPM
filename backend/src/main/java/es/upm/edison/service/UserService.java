@@ -1,6 +1,8 @@
 package es.upm.edison.service;
 
 import es.upm.edison.dto.IdeaSummaryResponse;
+import es.upm.edison.dto.CommentResponse;
+import es.upm.edison.dto.UserActivityResponse;
 import es.upm.edison.dto.UpdateProfileRequest;
 import es.upm.edison.dto.UpdateUserBlockedRequest;
 import es.upm.edison.dto.UpdateUserBlockedResponse;
@@ -15,6 +17,7 @@ import es.upm.edison.model.SavedIdeaId;
 import es.upm.edison.model.User;
 import es.upm.edison.model.UserRole;
 import es.upm.edison.repository.IdeaRepository;
+import es.upm.edison.repository.CommentRepository;
 import es.upm.edison.repository.SavedIdeaRepository;
 import es.upm.edison.repository.UserRepository;
 import org.springframework.stereotype.Service;
@@ -23,7 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.UUID;
 
-/** Manages user profiles and saved ideas, and finds founders, professors and mentors. */
+/** Manages profiles, administrator activity views, blocking, saved ideas and user directories. */
 @Service
 @Transactional
 public class UserService {
@@ -31,13 +34,16 @@ public class UserService {
     private final UserRepository userRepository;
     private final IdeaRepository ideaRepository;
     private final SavedIdeaRepository savedIdeaRepository;
+    private final CommentRepository commentRepository;
 
     public UserService(UserRepository userRepository,
                        IdeaRepository ideaRepository,
-                       SavedIdeaRepository savedIdeaRepository) {
+                       SavedIdeaRepository savedIdeaRepository,
+                       CommentRepository commentRepository) {
         this.userRepository = userRepository;
         this.ideaRepository = ideaRepository;
         this.savedIdeaRepository = savedIdeaRepository;
+        this.commentRepository = commentRepository;
     }
 
     // ---------- Profiles ----------
@@ -61,10 +67,7 @@ public class UserService {
     }
 
     public UpdateUserBlockedResponse updateBlocked(UUID userId, UUID currentUserId, UpdateUserBlockedRequest request) {
-        User administrator = userRepository.requireCurrent(currentUserId);
-        if (!administrator.isAdministrator()) {
-            throw new ForbiddenException("Only administrators can block or unblock users");
-        }
+        requireAdministrator(currentUserId);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("User not found"));
         if (request.blocked() && user.isAdministrator()) {
@@ -73,6 +76,26 @@ public class UserService {
         user.setBlocked(request.blocked());
         String message = user.isBlocked() ? "User blocked successfully" : "User unblocked successfully";
         return new UpdateUserBlockedResponse(message, UserResponse.from(user));
+    }
+
+    @Transactional(readOnly = true)
+    public UserActivityResponse getActivity(UUID userId, UUID currentUserId) {
+        requireAdministrator(currentUserId);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new NotFoundException("User not found"));
+        List<IdeaSummaryResponse> userIdeas = ideaRepository.findByFounderIdOrderByCreatedAtDesc(userId).stream()
+                .map(IdeaSummaryResponse::from).toList();
+        List<CommentResponse> userComments = commentRepository.findByAuthorIdOrderByCreatedAtDesc(userId).stream()
+                .map(CommentResponse::from).toList();
+        return new UserActivityResponse(UserResponse.from(user), userIdeas.size(), userIdeas,
+                userComments.size(), userComments);
+    }
+
+    private void requireAdministrator(UUID currentUserId) {
+        User user = userRepository.requireCurrent(currentUserId);
+        if (!user.isAdministrator()) {
+            throw new ForbiddenException("Only administrators can manage users or view their activity");
+        }
     }
 
     // ---------- Founders and mentors ----------

@@ -2,6 +2,7 @@ package es.upm.edison.controller;
 
 import es.upm.edison.config.CurrentUser;
 import es.upm.edison.dto.IdeaSummaryResponse;
+import es.upm.edison.dto.UserActivityResponse;
 import es.upm.edison.dto.UpdateProfileRequest;
 import es.upm.edison.dto.UpdateUserBlockedRequest;
 import es.upm.edison.dto.UpdateUserBlockedResponse;
@@ -22,7 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.UUID;
 
-/** View user profiles, update own profile, browse founders and mentors, manage saved ideas. */
+/** Profiles, administrator activity views and blocking, directories and saved ideas. */
 @RestController
 @RequestMapping("/api/users")
 public class UserController {
@@ -51,6 +52,11 @@ public class UserController {
                                                    @PathVariable UUID userId,
                                                    @Valid @RequestBody UpdateUserBlockedRequest request) {
         return userService.updateBlocked(userId, CurrentUser.id(principal), request);
+    }
+
+    @GetMapping("/{userId}/activity")
+    public UserActivityResponse getActivity(Principal principal, @PathVariable UUID userId) {
+        return userService.getActivity(userId, CurrentUser.id(principal));
     }
 
     // ---------- Saved ideas ----------
