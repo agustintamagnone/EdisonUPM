@@ -4,6 +4,8 @@ import es.upm.edison.config.CurrentUser;
 import es.upm.edison.dto.CommentListResponse;
 import es.upm.edison.dto.CommentRequest;
 import es.upm.edison.dto.CommentResponse;
+import es.upm.edison.dto.UpdateCommentResponse;
+import es.upm.edison.dto.DeleteCommentResponse;
 import es.upm.edison.service.CommentService;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -45,16 +47,17 @@ public class CommentController {
     }
 
     @PutMapping("/comments/{commentId}")
-    public CommentResponse update(Principal principal,
+    public UpdateCommentResponse update(Principal principal,
                                   @PathVariable UUID commentId,
                                   @RequestBody CommentRequest request) {
-        return commentService.update(commentId, CurrentUser.id(principal), request);
+        CommentResponse comment = commentService.update(commentId, CurrentUser.id(principal), request);
+        return new UpdateCommentResponse("Comment updated successfully", comment);
     }
 
     @DeleteMapping("/comments/{commentId}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(Principal principal,
+    public DeleteCommentResponse delete(Principal principal,
                        @PathVariable UUID commentId) {
         commentService.delete(commentId, CurrentUser.id(principal));
+        return new DeleteCommentResponse(commentId, "Comment deleted successfully");
     }
 }

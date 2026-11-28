@@ -124,11 +124,11 @@ public class Idea {
     }
 
     /**
-     * The founder always sees the idea. Everybody else only sees PUBLISHED ideas:
+     * Administrators and the founder always see the idea. Everybody else only sees PUBLISHED ideas:
      * PUBLIC ones without logging in, UPM_COMMUNITY ones only as an authenticated Student or Professor.
      */
     public boolean isVisibleTo(User viewer) {
-        if (isFoundedBy(viewer)) {
+        if ((viewer != null && viewer.isAdministrator()) || isFoundedBy(viewer)) {
             return true;
         }
         if (status != IdeaStatus.PUBLISHED) {

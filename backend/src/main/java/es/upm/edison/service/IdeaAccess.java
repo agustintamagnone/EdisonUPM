@@ -33,12 +33,18 @@ final class IdeaAccess {
         return idea;
     }
 
-    /** Loads a DRAFT idea and checks that {@code user} is its founder. */
-    static Idea loadOwnDraft(IdeaRepository ideas, UUID ideaId, User user) {
+    /** Loads an idea in any state for its founder or an administrator. */
+    static Idea loadOwn(IdeaRepository ideas, UUID ideaId, User user) {
         Idea idea = load(ideas, ideaId);
-        if (!idea.isFoundedBy(user)) {
-            throw new ForbiddenException("Only the founder can edit this idea");
+        if (!idea.isFoundedBy(user) && !user.isAdministrator()) {
+            throw new ForbiddenException("Only the founder or an administrator can manage this idea");
         }
+        return idea;
+    }
+
+    /** Loads a DRAFT idea for its founder or an administrator. */
+    static Idea loadOwnDraft(IdeaRepository ideas, UUID ideaId, User user) {
+        Idea idea = loadOwn(ideas, ideaId, user);
         if (idea.getStatus() != IdeaStatus.DRAFT) {
             throw new ValidationException("status", "Only DRAFT ideas can be edited");
         }

@@ -2,6 +2,8 @@ package es.upm.edison.controller;
 
 import es.upm.edison.config.CurrentUser;
 import es.upm.edison.dto.IdeaBasicsRequest;
+import es.upm.edison.dto.UpdateIdeaRequest;
+import es.upm.edison.dto.DeleteIdeaResponse;
 import es.upm.edison.dto.IdeaClassificationRequest;
 import es.upm.edison.dto.IdeaMetricsRequest;
 import es.upm.edison.dto.IdeaResponse;
@@ -72,6 +74,18 @@ public class IdeaController {
     public IdeaResponse getIdea(Principal principal,
                                 @PathVariable UUID ideaId) {
         return ideaService.getIdea(ideaId, CurrentUser.id(principal));
+    }
+
+    @PutMapping("/ideas/{ideaId}")
+    public IdeaResponse updateIdea(Principal principal,
+                                   @PathVariable UUID ideaId,
+                                   @RequestBody UpdateIdeaRequest request) {
+        return ideaService.updateIdea(ideaId, CurrentUser.id(principal), request);
+    }
+
+    @DeleteMapping("/ideas/{ideaId}")
+    public DeleteIdeaResponse deleteIdea(Principal principal, @PathVariable UUID ideaId) {
+        return ideaService.deleteIdea(ideaId, CurrentUser.id(principal));
     }
 
     // ---------- Drafts (publication wizard) ----------
