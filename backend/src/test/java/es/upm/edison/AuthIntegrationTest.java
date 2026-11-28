@@ -157,14 +157,20 @@ class AuthIntegrationTest {
                 assertEquals("50 weekly users expected", rows.getString("metric"));
                 assertFalse(rows.next());
             }
-            try (var rows = connection.createStatement().executeQuery("SELECT password_hash FROM users")) {
+            try (var rows = connection.createStatement().executeQuery("SELECT email, password_hash, blocked FROM users")) {
                 int count = 0;
+                int blockedCount = 0;
                 while (rows.next()) {
                     count++;
-                    assertTrue(encoder.matches("EdisonDemo2026!", rows.getString(1)));
-                    assertEquals(60, rows.getString(1).length());
+                    assertTrue(encoder.matches("EdisonDemo2026!", rows.getString("password_hash")));
+                    assertEquals(60, rows.getString("password_hash").length());
+                    if (rows.getBoolean("blocked")) {
+                        blockedCount++;
+                        assertEquals("paco.jones@example.com", rows.getString("email"));
+                    }
                 }
-                assertEquals(5, count);
+                assertEquals(6, count);
+                assertEquals(1, blockedCount);
             }
         }
     }

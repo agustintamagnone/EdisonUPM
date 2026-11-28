@@ -109,14 +109,14 @@ public class IdeaService {
         int pageSize = Math.min(Math.max(size, 1), 50);
         if (!selectedTags.isEmpty()) {
             return PageResponse.from(
-                    ideaRepository.searchByTags(statuses, visibilities, selectedTags, stage, normalizedQuery,
+                    ideaRepository.searchByTags(statuses, visibilities, administrator, selectedTags, stage, normalizedQuery,
                             PageRequest.of(pageNumber, pageSize)),
                     IdeaSummaryResponse::from);
         }
         PageRequest pageable = PageRequest.of(pageNumber, pageSize,
                 Sort.by(Sort.Order.desc("publishedAt"), Sort.Order.asc("id")));
         return PageResponse.from(
-                ideaRepository.search(statuses, visibilities, stage, normalizedQuery, pageable),
+                ideaRepository.search(statuses, visibilities, administrator, stage, normalizedQuery, pageable),
                 IdeaSummaryResponse::from);
     }
 

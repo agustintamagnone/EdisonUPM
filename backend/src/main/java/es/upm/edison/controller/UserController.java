@@ -3,6 +3,8 @@ package es.upm.edison.controller;
 import es.upm.edison.config.CurrentUser;
 import es.upm.edison.dto.IdeaSummaryResponse;
 import es.upm.edison.dto.UpdateProfileRequest;
+import es.upm.edison.dto.UpdateUserBlockedRequest;
+import es.upm.edison.dto.UpdateUserBlockedResponse;
 import es.upm.edison.dto.UserResponse;
 import es.upm.edison.service.UserService;
 import jakarta.validation.Valid;
@@ -42,6 +44,13 @@ public class UserController {
     public UserResponse updateMe(Principal principal,
                                  @Valid @RequestBody UpdateProfileRequest request) {
         return userService.updateMe(CurrentUser.id(principal), request);
+    }
+
+    @PutMapping("/{userId}/blocked")
+    public UpdateUserBlockedResponse updateBlocked(Principal principal,
+                                                   @PathVariable UUID userId,
+                                                   @Valid @RequestBody UpdateUserBlockedRequest request) {
+        return userService.updateBlocked(userId, CurrentUser.id(principal), request);
     }
 
     // ---------- Saved ideas ----------

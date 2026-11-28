@@ -18,6 +18,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
 
 import java.util.List;
 import java.util.UUID;
@@ -49,7 +50,7 @@ public class SecurityConfig {
                 boolean validOption = user != null && (
                         ("UPM_ACCOUNT".equals(authentication.getDetails()) && user.getRole() != UserRole.INVESTOR)
                         || ("EXTERNAL_USER".equals(authentication.getDetails()) && user.getRole() == UserRole.INVESTOR));
-                if (!validPassword || !validOption) {
+                if (!validPassword || !validOption || user.isBlocked()) {
                     throw new BadCredentialsException("Invalid credentials or access option");
                 }
                 return UsernamePasswordAuthenticationToken.authenticated(user.getId().toString(), null,
@@ -64,7 +65,8 @@ public class SecurityConfig {
     }
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http, ObjectMapper mapper, UserService users)
+    SecurityFilterChain securityFilterChain(HttpSecurity http, ObjectMapper mapper, UserService users,
+                                           UserRepository userRepository)
             throws Exception {
         http.cors(Customizer.withDefaults())
                 .authorizeHttpRequests(auth -> auth
@@ -102,6 +104,7 @@ public class SecurityConfig {
                             response.setContentType("application/json");
                             mapper.writeValue(response.getOutputStream(), ApiError.of(403, "Access denied or invalid CSRF token"));
                         }));
+        http.addFilterBefore(new BlockedUserFilter(userRepository, mapper), AuthorizationFilter.class);
         // Keep Spring Security's default session persistence, fixation protection and CSRF.
         return http.build();
     }

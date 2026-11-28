@@ -51,6 +51,7 @@ Otros paquetes: `dto` (peticiones/respuestas JSON), `exception` (errores y `Glob
 | PUT | `/api/comments/{commentId}` | Autor/admin: editar comentario; `200` con mensaje y comentario actualizado |
 | DELETE | `/api/comments/{commentId}` | Autor/admin: borrado definitivo; `200` con ID y mensaje de confirmación |
 | GET / PUT | `/api/users/me` | Perfil propio |
+| PUT | `/api/users/{id}/blocked` | Administrador: bloquear/desbloquear un usuario; devuelve confirmación y usuario actualizado |
 | GET / PUT / DELETE | `/api/users/me/saved-ideas[/{ideaId}]` | Ideas guardadas |
 | GET | `/api/users/founders`, `/api/users/mentors`, `/api/users/{id}` | Fundadores, mentores, perfiles |
 
@@ -106,6 +107,26 @@ El rol se obtiene del usuario autenticado almacenado en la base de datos. El adm
 - Se mantienen las validaciones, las sesiones y CSRF. Los demás roles conservan sus permisos y los endpoints públicos siguen admitiendo acceso anónimo.
 
 No se necesitan migraciones de esquema ni endpoints específicos de administración. Para comprobarlo manualmente, inicia sesión con `admin.edison@upm.es`, contraseña `EdisonDemo2026!` y opción `UPM_ACCOUNT`, siguiendo las instrucciones de sesión/CSRF de abajo, y utiliza los mismos endpoints sobre contenido de otro usuario.
+
+### Bloqueo y desbloqueo de usuarios
+
+Un administrador puede enviar `PUT /api/users/{id}/blocked`, con su sesión, la cabecera CSRF vigente y un cuerpo JSON:
+
+```json
+{"blocked": true}
+```
+
+Devuelve `200` con `message: "User blocked successfully"` y `user`, que contiene el usuario actualizado, incluido `blocked: true`. Con `{"blocked": false}` se desbloquea y el mensaje es `"User unblocked successfully"`. Repetir la misma petición devuelve éxito con el mismo estado.
+
+- Un administrador no puede ser bloqueado, ni por otro administrador ni por sí mismo: `422` con `errors.blocked`. Otros roles reciben `403`; una petición sin sesión con CSRF válido recibe `401`. Un usuario inexistente devuelve `404` y un campo `blocked` ausente, nulo o inválido devuelve `400`.
+- Una cuenta bloqueada no puede iniciar sesión: recibe el mismo `401` que unas credenciales incorrectas. Si tenía una sesión abierta, su siguiente petición válida cierra esa sesión mediante Spring Security, elimina la cookie y devuelve `401`. La comprobación consulta el estado actual de MySQL, sin mantener un registro propio de sesiones.
+- Sus ideas se ocultan a los usuarios no administradores en búsquedas, matchmaking, favoritos, detalles, capturas y archivos. Sus comentarios desaparecen de los listados y contadores, incluso en ideas de otros autores. Los comentarios de cualquier autor bajo una idea oculta tampoco son accesibles. El listado público de fundadores excluye a los bloqueados; los perfiles conservan su formato y el campo `blocked`.
+- El administrador conserva acceso al contenido oculto para moderarlo. El bloqueo no elimina filas, favoritos ni imágenes, ni cambia `IdeaStatus`, `CommentStatus`, fechas o permisos de publicación.
+- Al desbloquear, el usuario puede iniciar sesión y el contenido recupera su visibilidad anterior: los borradores y las ideas archivadas siguen sujetos a sus restricciones habituales. Las sesiones que se hayan cerrado no se recuperan.
+
+Se reutiliza la columna `users.blocked` existente; no hay que modificar ni recrear la base de datos. El seed incluye cinco cuentas activas y una cuenta bloqueada de prueba.
+
+Para comprobarlo, inicia sesión como un estudiante y como el administrador en clientes separados. Como administrador, bloquea al estudiante: comprueba el `401` de su sesión y de un nuevo login, y que sus ideas/comentarios desaparezcan para visitantes mientras el administrador puede consultarlos. Desbloquéalo y repite el login y las consultas: el contenido debe reaparecer sin perder datos.
 
 ## Base de datos MySQL – guía paso a paso
 
@@ -300,7 +321,7 @@ El login recibe **application/x-www-form-urlencoded**, no JSON: `email`, `passwo
 - `UPM_ACCOUNT`: roles almacenados STUDENT, PROFESSOR y ADMINISTRATOR.
 - `EXTERNAL_USER`: rol almacenado INVESTOR.
 
-La opción solo comprueba el tipo de cuenta: nunca asigna un rol. Ni el login ni la actualización del perfil permiten modificarlo. Las respuestas no contienen contraseñas ni hashes. Un email desconocido, contraseña incorrecta u opción ausente/incompatible devuelve el mismo error 401.
+La opción solo comprueba el tipo de cuenta: nunca asigna un rol. Ni el login ni la actualización del perfil permiten modificarlo. Las respuestas no contienen contraseñas ni hashes. Un email desconocido, contraseña incorrecta, cuenta bloqueada u opción ausente/incompatible devuelve el mismo error 401.
 
 `X-User-Id` se ignora. Los endpoints GET públicos siguen siendo anónimos y los servicios comprueban los permisos. ADMINISTRATOR entra mediante UPM_ACCOUNT y puede gestionar todas las ideas y comentarios, incluido el contenido UPM_COMMUNITY; estudiantes y profesores conservan el acceso comunitario y los inversores ven las publicaciones públicas.
 
@@ -356,6 +377,9 @@ Todas las cuentas ficticias usan **`EdisonDemo2026!`**, exclusivamente para desa
 | elena.gomez@upm.es | UPM_ACCOUNT | PROFESSOR |
 | admin.edison@upm.es | UPM_ACCOUNT | ADMINISTRATOR |
 | javier.ortega@example.com | EXTERNAL_USER | INVESTOR |
+| paco.jones@example.com | UPM_ACCOUNT | STUDENT |
+
+La cuenta `paco.jones@example.com` está bloqueada inicialmente: su login devuelve `401` hasta que un administrador la desbloquee. Las otras cinco cuentas están activas.
 
 ### Comprobar el login sin frontend (PowerShell)
 

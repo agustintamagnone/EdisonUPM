@@ -28,19 +28,21 @@ public interface IdeaRepository extends JpaRepository<Idea, UUID> {
     @Query("""
             select i from Idea i
             where i.status in :statuses
+              and (:includeBlocked = true or i.founder.blocked = false)
               and i.visibility in :visibilities
               and (:stage is null or :stage member of i.stage)
               and (:query is null
                    or lower(i.title) like lower(concat('%', :query, '%'))
                    or lower(i.elevatorPitch) like lower(concat('%', :query, '%')))
             """)
-    Page<Idea> search(Collection<IdeaStatus> statuses, Collection<Visibility> visibilities,
+    Page<Idea> search(Collection<IdeaStatus> statuses, Collection<Visibility> visibilities, boolean includeBlocked,
                       DevelopmentStage stage, String query, Pageable pageable);
 
     /** Match any selected tag and rank by matches, then newest publication. */
     @Query(value = """
             select i from Idea i join i.tags t
             where i.status in :statuses
+              and (:includeBlocked = true or i.founder.blocked = false)
               and i.visibility in :visibilities
               and t in :tags
               and (:stage is null or :stage member of i.stage)
@@ -52,6 +54,7 @@ public interface IdeaRepository extends JpaRepository<Idea, UUID> {
             """, countQuery = """
             select count(distinct i.id) from Idea i join i.tags t
             where i.status in :statuses
+              and (:includeBlocked = true or i.founder.blocked = false)
               and i.visibility in :visibilities
               and t in :tags
               and (:stage is null or :stage member of i.stage)
@@ -59,6 +62,6 @@ public interface IdeaRepository extends JpaRepository<Idea, UUID> {
                    or lower(i.title) like lower(concat('%', :query, '%'))
                    or lower(i.elevatorPitch) like lower(concat('%', :query, '%')))
             """)
-    Page<Idea> searchByTags(Collection<IdeaStatus> statuses, Collection<Visibility> visibilities,
+    Page<Idea> searchByTags(Collection<IdeaStatus> statuses, Collection<Visibility> visibilities, boolean includeBlocked,
                             Collection<IdeaTag> tags, DevelopmentStage stage, String query, Pageable pageable);
 }
