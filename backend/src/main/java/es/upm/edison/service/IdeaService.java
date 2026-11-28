@@ -2,6 +2,8 @@ package es.upm.edison.service;
 
 import es.upm.edison.dto.AttachmentResponse;
 import es.upm.edison.dto.IdeaBasicsRequest;
+import es.upm.edison.dto.UpdateIdeaRequest;
+import es.upm.edison.dto.DeleteIdeaResponse;
 import es.upm.edison.dto.IdeaClassificationRequest;
 import es.upm.edison.dto.IdeaMetricsRequest;
 import es.upm.edison.dto.IdeaResponse;
@@ -21,10 +23,15 @@ import es.upm.edison.model.Visibility;
 import es.upm.edison.repository.AttachmentRepository;
 import es.upm.edison.repository.IdeaRepository;
 import es.upm.edison.repository.UserRepository;
+import es.upm.edison.service.storage.ImageStorage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -41,11 +48,13 @@ import java.util.UUID;
 /**
  * Validates idea information, manages the publication process (DRAFT →
  * PUBLISHED → ARCHIVED),
- * checks founder permissions and manages the MVP link.
+ * checks founder/admin permissions and manages the MVP link.
  */
 @Service
 @Transactional
 public class IdeaService {
+
+    private static final Logger log = LoggerFactory.getLogger(IdeaService.class);
 
     static final int TITLE_MAX = 120;
     static final int ELEVATOR_PITCH_MAX = 300;
@@ -63,13 +72,16 @@ public class IdeaService {
     private final IdeaRepository ideaRepository;
     private final UserRepository userRepository;
     private final AttachmentRepository attachmentRepository;
+    private final ImageStorage imageStorage;
 
     public IdeaService(IdeaRepository ideaRepository,
             UserRepository userRepository,
-            AttachmentRepository attachmentRepository) {
+            AttachmentRepository attachmentRepository,
+            ImageStorage imageStorage) {
         this.ideaRepository = ideaRepository;
         this.userRepository = userRepository;
         this.attachmentRepository = attachmentRepository;
+        this.imageStorage = imageStorage;
     }
 
     // ---------- Browse and search ----------
@@ -87,7 +99,9 @@ public class IdeaService {
                                                    DevelopmentStage stage, int page, int size) {
         Set<IdeaTag> selectedTags = tags == null ? Set.of() : tags;
         User viewer = userRepository.findCurrent(currentUserId).orElse(null);
-        Set<Visibility> visibilities = Idea.isUpmCommunityMember(viewer)
+        boolean administrator = viewer != null && viewer.isAdministrator();
+        Set<IdeaStatus> statuses = administrator ? EnumSet.allOf(IdeaStatus.class) : Set.of(IdeaStatus.PUBLISHED);
+        Set<Visibility> visibilities = administrator || Idea.isUpmCommunityMember(viewer)
                 ? Set.of(Visibility.PUBLIC, Visibility.UPM_COMMUNITY)
                 : Set.of(Visibility.PUBLIC);
         String normalizedQuery = (query == null || query.isBlank()) ? null : query.trim();
@@ -95,14 +109,14 @@ public class IdeaService {
         int pageSize = Math.min(Math.max(size, 1), 50);
         if (!selectedTags.isEmpty()) {
             return PageResponse.from(
-                    ideaRepository.searchByTags(IdeaStatus.PUBLISHED, visibilities, selectedTags, stage, normalizedQuery,
+                    ideaRepository.searchByTags(statuses, visibilities, selectedTags, stage, normalizedQuery,
                             PageRequest.of(pageNumber, pageSize)),
                     IdeaSummaryResponse::from);
         }
         PageRequest pageable = PageRequest.of(pageNumber, pageSize,
                 Sort.by(Sort.Order.desc("publishedAt"), Sort.Order.asc("id")));
         return PageResponse.from(
-                ideaRepository.search(IdeaStatus.PUBLISHED, visibilities, stage, normalizedQuery, pageable),
+                ideaRepository.search(statuses, visibilities, stage, normalizedQuery, pageable),
                 IdeaSummaryResponse::from);
     }
 
@@ -120,12 +134,79 @@ public class IdeaService {
                 .toList();
     }
 
+    // ---------- Founder/admin edit and permanent deletion ----------
+
+    public IdeaResponse updateIdea(UUID ideaId, UUID currentUserId, UpdateIdeaRequest request) {
+        User user = userRepository.requireCurrent(currentUserId);
+        Idea idea = IdeaAccess.loadOwn(ideaRepository, ideaId, user);
+        if (idea.getStatus() == IdeaStatus.ARCHIVED && !user.isAdministrator()) {
+            throw new ValidationException("status", "Archived ideas cannot be edited");
+        }
+        Map<String, List<String>> errors = new LinkedHashMap<>(validateBasics(request.title(), request.elevatorPitch(),
+                request.problemStatement(), request.solutionDescription()));
+        String contact = request.contact() == null ? null : request.contact().trim();
+        if (contact != null && contact.length() > LONG_TEXT_MAX) {
+            errors.put("contact", List.of("Contact must have at most " + LONG_TEXT_MAX + " characters"));
+        }
+        Set<IdeaTag> tags = request.tags() == null ? Set.of() : request.tags();
+        List<String> classificationErrors = idea.getStatus() != IdeaStatus.DRAFT
+                ? validateClassification(tags.size(), request.developmentStage()) : new ArrayList<>();
+        if (idea.getStatus() == IdeaStatus.DRAFT && tags.size() > MAX_TAGS) {
+            classificationErrors.add("Select at most " + MAX_TAGS + " tags");
+        }
+        if (tags.stream().anyMatch(java.util.Objects::isNull)) {
+            classificationErrors.add("Tags cannot contain null values");
+        }
+        addIfAny(errors, STEP_MVP_PROOF, classificationErrors);
+        String mvpUrl = request.mvpUrl() == null || request.mvpUrl().isBlank() ? null : request.mvpUrl().trim();
+        if (mvpUrl != null && !isValidHttpUrl(mvpUrl)) {
+            errors.put("mvpUrl", List.of("The MVP link must be a valid HTTP or HTTPS URL"));
+        }
+        List<String> metrics = request.metrics() == null ? List.of() : request.metrics();
+        addIfAny(errors, "metrics", validateMetrics(metrics));
+        throwIfInvalid(errors);
+
+        idea.setTitle(request.title().trim());
+        idea.setElevatorPitch(request.elevatorPitch().trim());
+        idea.setProblemStatement(request.problemStatement().trim());
+        idea.setSolutionDescription(request.solutionDescription().trim());
+        idea.setContact(contact);
+        idea.setTags(tags.isEmpty() ? EnumSet.noneOf(IdeaTag.class) : EnumSet.copyOf(tags));
+        idea.setDevelopmentStage(request.developmentStage());
+        idea.setMvpUrl(mvpUrl);
+        idea.setMetrics(normalizeMetrics(metrics));
+        return toResponse(idea);
+    }
+
+    public DeleteIdeaResponse deleteIdea(UUID ideaId, UUID currentUserId) {
+        IdeaAccess.loadOwn(ideaRepository, ideaId, userRepository.requireCurrent(currentUserId));
+        List<String> storageKeys = attachmentRepository.findByIdeaIdOrderByDisplayOrderAsc(ideaId).stream()
+                .map(attachment -> attachment.getStorageKey()).toList();
+        // The SQL schema cascades deletion to comments, saved ideas and attachments.
+        // Hibernate removes the idea's element collections (tags, stage, roles, metrics).
+        ideaRepository.deletePermanentlyById(ideaId);
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                for (String storageKey : storageKeys) {
+                    try {
+                        imageStorage.delete(storageKey);
+                    } catch (RuntimeException ex) {
+                        // The database is already committed; continue cleaning the remaining files.
+                        log.error("Cannot remove image {} after deleting idea {}", storageKey, ideaId, ex);
+                    }
+                }
+            }
+        });
+        return new DeleteIdeaResponse(ideaId, "Idea deleted successfully");
+    }
+
     // ---------- Wizard step 1: Basics ----------
 
     public IdeaResponse createDraft(UUID currentUserId, IdeaBasicsRequest request) {
         User founder = userRepository.requireCurrent(currentUserId);
-        if (founder.getRole() != UserRole.STUDENT) {
-            throw new ForbiddenException("Only students can publish ideas");
+        if (founder.getRole() != UserRole.STUDENT && !founder.isAdministrator()) {
+            throw new ForbiddenException("Only students or administrators can create ideas");
         }
         throwIfInvalid(validateBasics(request.title(), request.elevatorPitch(),
                 request.problemStatement(), request.solutionDescription()));
@@ -178,11 +259,8 @@ public class IdeaService {
 
     public IdeaResponse updateMetrics(UUID ideaId, UUID currentUserId, IdeaMetricsRequest request) {
         User user = userRepository.requireCurrent(currentUserId);
-        Idea idea = IdeaAccess.load(ideaRepository, ideaId);
-        if (!idea.isFoundedBy(user)) {
-            throw new ForbiddenException("Only the founder can edit this idea");
-        }
-        if (idea.getStatus() == IdeaStatus.ARCHIVED) {
+        Idea idea = IdeaAccess.loadOwn(ideaRepository, ideaId, user);
+        if (idea.getStatus() == IdeaStatus.ARCHIVED && !user.isAdministrator()) {
             throw new ValidationException("status", "Archived ideas cannot be edited");
         }
         List<String> metricErrors = validateMetrics(request.metrics());
@@ -253,10 +331,7 @@ public class IdeaService {
 
     public IdeaResponse archive(UUID ideaId, UUID currentUserId) {
         User user = userRepository.requireCurrent(currentUserId);
-        Idea idea = IdeaAccess.load(ideaRepository, ideaId);
-        if (!idea.isFoundedBy(user)) {
-            throw new ForbiddenException("Only the founder can archive this idea");
-        }
+        Idea idea = IdeaAccess.loadOwn(ideaRepository, ideaId, user);
         if (idea.getStatus() == IdeaStatus.ARCHIVED) {
             throw new ValidationException("status", "The idea is already archived");
         }

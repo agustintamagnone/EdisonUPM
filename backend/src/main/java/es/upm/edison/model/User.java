@@ -57,6 +57,7 @@ public class User {
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
     public UserRole getRole() { return role; }
+    public boolean isAdministrator() { return role == UserRole.ADMINISTRATOR; }
     public String getPasswordHash() { return passwordHash; }
     public boolean isBlocked() { return blocked; }
     public void setBlocked(boolean blocked) { this.blocked = blocked; }

@@ -45,7 +45,7 @@ class IdeaSearchIntegrationTest {
 
     private String scope;
     private User founder;
-    private Idea full, softwareGreen, softwareHardware, software, green, health, untagged, community;
+    private Idea full, softwareGreen, softwareHardware, software, green, health, untagged, community, draft, archived;
 
     @BeforeEach
     void setUp() {
@@ -61,10 +61,10 @@ class IdeaSearchIntegrationTest {
         untagged = createIdea("Untagged", 70);
         community = createIdea("Community", 100, SOFTWARE, GREEN_TECH, HARDWARE);
         community.setVisibility(Visibility.UPM_COMMUNITY);
-        Idea draft = createIdea("Draft", 90, SOFTWARE, GREEN_TECH, HARDWARE);
+        draft = createIdea("Draft", 90, SOFTWARE, GREEN_TECH, HARDWARE);
         draft.setStatus(IdeaStatus.DRAFT);
         draft.setDevelopmentStage(DevelopmentStage.PROTOTYPE);
-        Idea archived = createIdea("Archived", 80, SOFTWARE, GREEN_TECH, HARDWARE);
+        archived = createIdea("Archived", 80, SOFTWARE, GREEN_TECH, HARDWARE);
         archived.setStatus(IdeaStatus.ARCHIVED);
         archived.setDevelopmentStage(DevelopmentStage.PROTOTYPE);
         full.setDevelopmentStage(DevelopmentStage.PROTOTYPE);
@@ -172,9 +172,11 @@ class IdeaSearchIntegrationTest {
     @EnumSource(UserRole.class)
     void rankingPreservesRoleBasedVisibility(UserRole role) throws Exception {
         User viewer = createUser(role);
-        Idea[] expected = role == UserRole.STUDENT || role == UserRole.PROFESSOR
-                ? new Idea[]{community, full, softwareHardware, softwareGreen, software, green}
-                : new Idea[]{full, softwareHardware, softwareGreen, software, green};
+        Idea[] expected = switch (role) {
+            case ADMINISTRATOR -> new Idea[]{community, draft, archived, full, softwareHardware, softwareGreen, software, green};
+            case STUDENT, PROFESSOR -> new Idea[]{community, full, softwareHardware, softwareGreen, software, green};
+            case INVESTOR -> new Idea[]{full, softwareHardware, softwareGreen, software, green};
+        };
         mvc.perform(search("SOFTWARE", "GREEN_TECH", "HARDWARE")
                         .with(user(viewer.getId().toString()).roles(role.name())))
                 .andExpect(status().isOk())
@@ -197,6 +199,23 @@ class IdeaSearchIntegrationTest {
                 .andExpect(jsonPath("$.content[*].id", contains(ids(softwareGreen, health))))
                 .andExpect(jsonPath("$.totalElements").value(6))
                 .andExpect(jsonPath("$.totalPages").value(3));
+    }
+
+    @Test
+    void adminCanBrowseAllStatesWithPaginationAndFilterByStage() throws Exception {
+        User admin = createUser(UserRole.ADMINISTRATOR);
+        mvc.perform(get("/api/ideas").param("q", scope).param("size", "1")
+                        .with(user(admin.getId().toString())))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.content[0].id").value(community.getId().toString()))
+                .andExpect(jsonPath("$.totalElements").value(10)).andExpect(jsonPath("$.totalPages").value(10));
+        mvc.perform(search("SOFTWARE").param("stage", "PROTOTYPE")
+                        .with(user(admin.getId().toString())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[*].id", contains(ids(community, draft, archived, software, softwareHardware, full))))
+                .andExpect(jsonPath("$.totalElements").value(6));
+        mvc.perform(get("/api/ideas").param("q", scope).param("stage", "PROTOTYPE")
+                        .with(user(admin.getId().toString())))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(6));
     }
 
     @Test

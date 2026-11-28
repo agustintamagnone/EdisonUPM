@@ -32,9 +32,11 @@ Otros paquetes: `dto` (peticiones/respuestas JSON), `exception` (errores y `Glob
 |--------|------|-------------|
 | GET | `/api/tags` | Tags disponibles (`GREEN_TECH`, `SOFTWARE`, `HARDWARE`, `HEALTH_TECH`, `ED_TECH`, `CIRCULAR_ECONOMY`) |
 | GET | `/api/development-stages` | Etapas disponibles (`CONCEPT`, `PROTOTYPE`, `MVP_LIVE`) |
-| GET | `/api/ideas?q=&tag=&page=&size=` | Explorar/buscar ideas publicadas |
+| GET | `/api/ideas?q=&tag=&stage=&page=&size=` | Explorar/buscar ideas publicadas; el administrador ve todos los estados |
 | GET | `/api/ideas/mine` | Mis ideas |
 | GET | `/api/ideas/{id}` | Detalle de una idea (las métricas solo se devuelven a usuarios autenticados) |
+| PUT | `/api/ideas/{id}` | Propietario/admin: reemplazar el contenido editable; devuelve la idea actualizada |
+| DELETE | `/api/ideas/{id}` | Propietario/admin: borrar definitivamente una idea y sus datos asociados; devuelve confirmación |
 | POST | `/api/ideas` | Paso 1 – crear borrador (Basics) |
 | PUT | `/api/ideas/{id}/basics` | Paso 1 – editar Basics |
 | PUT | `/api/ideas/{id}/classification` | Paso 2 – tags, etapa de desarrollo y métricas de tracción opcionales |
@@ -46,13 +48,64 @@ Otros paquetes: `dto` (peticiones/respuestas JSON), `exception` (errores y `Glob
 | DELETE | `/api/ideas/{id}/attachments/{attachmentId}` | Eliminar captura |
 | GET | `/api/ideas/{id}/attachments/{attachmentId}/file` | Servir la imagen |
 | GET / POST | `/api/ideas/{id}/comments` | Listar / publicar comentarios (`clientRequestId` opcional para idempotencia) |
-| PUT / DELETE | `/api/comments/{commentId}` | Editar / borrar (soft delete) comentario propio |
+| PUT | `/api/comments/{commentId}` | Autor/admin: editar comentario; `200` con mensaje y comentario actualizado |
+| DELETE | `/api/comments/{commentId}` | Autor/admin: borrado definitivo; `200` con ID y mensaje de confirmación |
 | GET / PUT | `/api/users/me` | Perfil propio |
 | GET / PUT / DELETE | `/api/users/me/saved-ideas[/{ideaId}]` | Ideas guardadas |
 | GET | `/api/users/founders`, `/api/users/mentors`, `/api/users/{id}` | Fundadores, mentores, perfiles |
 
 
 ---
+
+### Editar y eliminar comentarios
+
+Como usuario autenticado, quiero editar o eliminar mis propios comentarios para corregir o retirar mi feedback y recibir confirmación del resultado.
+
+Ambas operaciones requieren sesión y CSRF. Puede ejecutarlas el autor del comentario o un administrador; ser propietario de la idea por sí solo no permite modificar comentarios ajenos.
+
+- `PUT /api/comments/{commentId}` recibe `{"content":"Comentario corregido"}`. Valida el texto (obligatorio, hasta 500 caracteres después de quitar espacios exteriores y enlaces HTTP/HTTPS), guarda el cambio y actualiza `updatedAt`. Devuelve `200` con `message: "Comment updated successfully"` y `comment`, que contiene el `CommentResponse` actualizado. Conserva el ID, la idea, el autor, `createdAt` y la clave de creación `clientRequestId`.
+- `DELETE /api/comments/{commentId}` no recibe cuerpo y elimina definitivamente la fila de la base de datos. Devuelve `200` con `{"id":"<UUID del comentario>","message":"Comment deleted successfully"}`. No elimina la idea ni los demás comentarios; el comentario borrado desaparece del listado y del contador.
+
+Sin sesión, con CSRF válido, se devuelve `401`; CSRF ausente/inválido o un comentario ajeno sin permisos de administrador devuelve `403`. Un comentario inexistente o ya eliminado devuelve `404`; contenido inválido devuelve `422` con `errors.content`, y JSON malformado devuelve `400`. No se devuelve confirmación de éxito si la operación falla.
+
+**Cambio de contrato para el frontend:** la edición devuelve ahora el comentario dentro de `response.comment`, acompañado del mensaje. El borrado devuelve `200` con JSON, en lugar de `204` sin cuerpo. El POST de creación y el GET de listado mantienen su formato. El frontend puede mostrar los mensajes tras recibir la respuesta satisfactoria; sus controles visuales no se modifican en este cambio.
+
+### Editar y borrar una idea
+
+Ambas operaciones requieren sesión y la cabecera CSRF vigente. Puede utilizarlas el propietario o un administrador. Los endpoints actuales del asistente de publicación siguen disponibles.
+
+`PUT /api/ideas/{id}` devuelve `200` con el `IdeaResponse` actualizado. Reemplaza el contenido editable, en lugar de aplicar cambios parciales:
+
+```json
+{
+  "title": "CampusShare",
+  "elevatorPitch": "Compartir bicicletas entre campus",
+  "problemStatement": "El transporte entre campus es lento",
+  "solutionDescription": "Una aplicación de reserva de bicicletas compartidas",
+  "contact": "founder@example.com",
+  "tags": ["SOFTWARE", "GREEN_TECH"],
+  "developmentStage": "PROTOTYPE",
+  "mvpUrl": "https://example.com/campusshare",
+  "metrics": ["50 usuarios semanales"]
+}
+```
+
+Los cuatro textos básicos son obligatorios. Omitir/enviar `null` en `contact` o `mvpUrl` los vacía; omitir/enviar `null` en `metrics` equivale a una lista vacía. Un borrador puede seguir sin tags ni etapa; las ideas publicadas y archivadas necesitan entre 1 y 3 tags y una etapa. Se permiten cinco métricas de hasta 200 caracteres y un contacto de hasta 2.000 caracteres. Se conservan propietario, estado, fecha de publicación, audiencia, permisos de feedback, capturas y comentarios. Solo el administrador puede editar ideas archivadas. Los endpoints de subida y eliminación de capturas siguen limitados a borradores.
+
+`DELETE /api/ideas/{id}` no recibe cuerpo y admite borradores, publicaciones e ideas archivadas. Devuelve `200` con `{"id":"<UUID de la idea>","message":"Idea deleted successfully"}`. Elimina definitivamente la idea, todos sus comentarios (también los marcados como borrados), favoritos, adjuntos, tags, etapa, métricas y permisos de comentaristas. Aprovecha las cascadas de las claves foráneas existentes; no requiere cambios de esquema. Los archivos de imagen se eliminan después de confirmar la transacción; un rollback los conserva. Si falla la limpieza de un archivo después del commit, el error se registra y se continúa con los demás; el borrado en base de datos queda confirmado.
+
+Sin sesión, una petición con CSRF válido devuelve `401`; sin CSRF válido devuelve `403`. Otro usuario sin permisos de administrador recibe `403`, una idea inexistente `404`, contenido inválido o editar una archivada sin ser administrador `422`, y JSON malformado/enums desconocidos `400`. Repetir un borrado devuelve `404`.
+
+### Permisos del administrador
+
+El rol se obtiene del usuario autenticado almacenado en la base de datos. El administrador utiliza la API existente:
+
+- `GET /api/ideas` incluye borradores, publicaciones e ideas archivadas de ambas audiencias, con los mismos filtros de texto, tags, etapa y paginación. `/api/ideas/mine` sigue mostrando únicamente las ideas propias.
+- Puede consultar los detalles, las capturas y `GET /api/ideas/{id}/comments` en cualquier estado. El listado de comentarios incluye filas antiguas marcadas como `DELETED`; se conserva la columna de estado por compatibilidad, pero los nuevos borrados son definitivos.
+- Puede editar/eliminar cualquier idea o comentario, crear ideas propias mediante el asistente de publicación y comentar aunque el feedback esté desactivado o su rol no esté permitido. La edición conserva el propietario/autor original y el estado de la idea.
+- Se mantienen las validaciones, las sesiones y CSRF. Los demás roles conservan sus permisos y los endpoints públicos siguen admitiendo acceso anónimo.
+
+No se necesitan migraciones de esquema ni endpoints específicos de administración. Para comprobarlo manualmente, inicia sesión con `admin.edison@upm.es`, contraseña `EdisonDemo2026!` y opción `UPM_ACCOUNT`, siguiendo las instrucciones de sesión/CSRF de abajo, y utiliza los mismos endpoints sobre contenido de otro usuario.
 
 ## Base de datos MySQL – guía paso a paso
 
@@ -249,7 +302,7 @@ El login recibe **application/x-www-form-urlencoded**, no JSON: `email`, `passwo
 
 La opción solo comprueba el tipo de cuenta: nunca asigna un rol. Ni el login ni la actualización del perfil permiten modificarlo. Las respuestas no contienen contraseñas ni hashes. Un email desconocido, contraseña incorrecta u opción ausente/incompatible devuelve el mismo error 401.
 
-`X-User-Id` se ignora. Los endpoints GET públicos siguen siendo anónimos y se mantienen las comprobaciones de permisos en los servicios. ADMINISTRATOR puede entrar mediante UPM_ACCOUNT, pero conserva los permisos anteriores: UPM_COMMUNITY continúa limitado a estudiantes y profesores.
+`X-User-Id` se ignora. Los endpoints GET públicos siguen siendo anónimos y los servicios comprueban los permisos. ADMINISTRATOR entra mediante UPM_ACCOUNT y puede gestionar todas las ideas y comentarios, incluido el contenido UPM_COMMUNITY; estudiantes y profesores conservan el acceso comunitario y los inversores ven las publicaciones públicas.
 
 ### Sesiones, cookies y frontend
 

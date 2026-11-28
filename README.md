@@ -32,9 +32,11 @@ Other packages: `dto` (JSON requests/responses), `exception` (errors and `Global
 |--------|------|-------------|
 | GET | `/api/tags` | Available tags (`GREEN_TECH`, `SOFTWARE`, `HARDWARE`, `HEALTH_TECH`, `ED_TECH`, `CIRCULAR_ECONOMY`) |
 | GET | `/api/development-stages` | Available stages (`CONCEPT`, `PROTOTYPE`, `MVP_LIVE`) |
-| GET | `/api/ideas?q=&tag=&page=&size=` | Browse/search published ideas |
+| GET | `/api/ideas?q=&tag=&stage=&page=&size=` | Browse/search published ideas; administrators see all states |
 | GET | `/api/ideas/mine` | My ideas |
 | GET | `/api/ideas/{id}` | Idea details (traction metrics are returned only to signed-in users) |
+| PUT | `/api/ideas/{id}` | Founder/admin: replace editable content; returns the updated idea |
+| DELETE | `/api/ideas/{id}` | Founder/admin: permanently delete an idea and related data; returns confirmation |
 | POST | `/api/ideas` | Step 1 – create draft (Basics) |
 | PUT | `/api/ideas/{id}/basics` | Step 1 – edit Basics |
 | PUT | `/api/ideas/{id}/classification` | Step 2 – tags, development stage and optional traction metrics |
@@ -46,13 +48,64 @@ Other packages: `dto` (JSON requests/responses), `exception` (errors and `Global
 | DELETE | `/api/ideas/{id}/attachments/{attachmentId}` | Remove screenshot |
 | GET | `/api/ideas/{id}/attachments/{attachmentId}/file` | Serve the image |
 | GET / POST | `/api/ideas/{id}/comments` | List / post comments (optional `clientRequestId` for idempotency) |
-| PUT / DELETE | `/api/comments/{commentId}` | Edit / delete (soft delete) own comment |
+| PUT | `/api/comments/{commentId}` | Author/admin: edit a comment; `200` with a message and the updated comment |
+| DELETE | `/api/comments/{commentId}` | Author/admin: permanently delete a comment; `200` with ID and confirmation message |
 | GET / PUT | `/api/users/me` | Own profile |
 | GET / PUT / DELETE | `/api/users/me/saved-ideas[/{ideaId}]` | Saved ideas |
 | GET | `/api/users/founders`, `/api/users/mentors`, `/api/users/{id}` | Founders, mentors, profiles |
 
 
 ---
+
+### Edit and delete comments
+
+As an authenticated user, I want to edit or delete my own comments so I can correct or withdraw my feedback and receive confirmation of the result.
+
+Both operations require a session and CSRF. The comment's author or an administrator may perform them; being the idea's founder alone does not grant permission to change someone else's comments.
+
+- `PUT /api/comments/{commentId}` accepts `{"content":"Corrected comment"}`. It validates the text (required, at most 500 characters after trimming, HTTP/HTTPS links), saves the change and updates `updatedAt`. It returns `200` with `message: "Comment updated successfully"` and `comment`, containing the updated `CommentResponse`. It preserves the ID, idea, author, `createdAt` and creation key `clientRequestId`.
+- `DELETE /api/comments/{commentId}` accepts no body and permanently removes the database row. It returns `200` with `{"id":"<comment UUID>","message":"Comment deleted successfully"}`. The idea and other comments remain unchanged; the deleted comment no longer appears in the list or count.
+
+An anonymous request with valid CSRF returns `401`; missing/invalid CSRF or someone else's comment without administrator permission returns `403`. Missing or already deleted comments return `404`; invalid content returns `422` with `errors.content`, and malformed JSON returns `400`. Failed operations never return a success confirmation.
+
+**Frontend contract change:** editing now returns the comment inside `response.comment`, alongside the message. Deletion returns `200` with JSON instead of an empty `204`. Creation POST and listing GET response formats are unchanged. The frontend may display the messages after a successful response; its visual controls are not modified by this change.
+
+### Edit and delete an idea
+
+Both operations require a session and the current CSRF header. The founder or an administrator may use them. Existing wizard endpoints remain available.
+
+`PUT /api/ideas/{id}` returns `200` with the updated `IdeaResponse`. It replaces the editable content rather than applying a partial patch:
+
+```json
+{
+  "title": "CampusShare",
+  "elevatorPitch": "Share bikes between campuses",
+  "problemStatement": "Transport between campuses is slow",
+  "solutionDescription": "A shared bike booking app",
+  "contact": "founder@example.com",
+  "tags": ["SOFTWARE", "GREEN_TECH"],
+  "developmentStage": "PROTOTYPE",
+  "mvpUrl": "https://example.com/campusshare",
+  "metrics": ["50 weekly users"]
+}
+```
+
+The four basic text fields are required. Omitted/null `contact` and `mvpUrl` are cleared; omitted/null `metrics` becomes an empty list. Drafts may have no tags or stage yet; published and archived ideas require 1–3 tags and a stage. Metrics are limited to five entries of 200 characters, and contact to 2,000 characters. Founder, state, publication date, audience, feedback settings, screenshots and comments are preserved. Only administrators can edit archived ideas. Existing screenshot upload/remove endpoints remain draft-only.
+
+`DELETE /api/ideas/{id}` accepts no body and works for drafts, published and archived ideas. It returns `200` with `{"id":"<idea UUID>","message":"Idea deleted successfully"}`. It permanently removes the idea, all comments (including soft-deleted comments), bookmarks, attachments, tags, stage, metrics and commenter-role settings. It relies on the existing SQL foreign-key cascades; no schema change is required. Image files are deleted only after the database transaction commits; rollback preserves them. If filesystem cleanup fails after commit, the error is logged and cleanup continues for the remaining files; the database deletion remains confirmed.
+
+Without a session, requests with valid CSRF return `401`; missing/invalid CSRF returns `403`. Non-owners without administrator permission receive `403`, missing ideas `404`, invalid content or a non-admin archived edit `422`, and malformed JSON/unknown enum values `400`. A repeated deletion returns `404`.
+
+### Administrator permissions
+
+The role comes from the authenticated user stored in the database. Administrators use the existing API:
+
+- `GET /api/ideas` includes drafts, published and archived ideas for both audiences, with the same text, tag, stage and pagination filters. `/api/ideas/mine` still lists only the current user's own ideas.
+- Idea details, screenshots and `GET /api/ideas/{id}/comments` are accessible in every state. Comment lists include any legacy rows marked `DELETED`; the status column is retained for compatibility, but new deletions are permanent.
+- Administrators can edit/delete any idea or comment, create their own ideas through the publication wizard, and create comments even when feedback is disabled or their role is not in the allowed list. Editing preserves the original founder/author and idea state.
+- Validation, sessions and CSRF still apply. Other roles retain their existing permissions; public endpoints remain accessible anonymously.
+
+No schema migration or separate administrator endpoints are needed. For a manual check, log in as `admin.edison@upm.es` with `EdisonDemo2026!` and `UPM_ACCOUNT` using the session/CSRF instructions below, then use the same endpoints against another user's content.
 
 ## MySQL database – step-by-step guide
 
@@ -155,20 +208,6 @@ mysql --login-path=edison edison_upm < database/01_schema.sql
 mysql --login-path=edison edison_upm -e "source database/01_schema.sql"
 ```
 
-> ⚠️ This script **drops and recreates** the tables. Use it to initialize, not on real data.
-
-For an existing database, apply `database/03_idea_metrics.sql` to add the optional metrics table without dropping existing data:
-
-```bash
-mysql --login-path=edison edison_upm < database/03_idea_metrics.sql
-```
-
-In PowerShell:
-
-```powershell
-mysql --login-path=edison edison_upm -e "source database/03_idea_metrics.sql"
-```
-
 ### 4. (Optional) Sample data
 
 **macOS:**
@@ -249,7 +288,7 @@ Login accepts **application/x-www-form-urlencoded**, not JSON: `email`, `passwor
 
 The access option only checks the account type; it never assigns a role. Neither login nor profile updates allow role changes. Responses never contain passwords or hashes. Unknown email, incorrect password, or missing/mismatched option return the same 401 error.
 
-`X-User-Id` is ignored. Public GET endpoints remain anonymous and existing service permission checks remain in place. ADMINISTRATOR can log in via UPM_ACCOUNT but retains existing permissions: UPM_COMMUNITY visibility remains limited to students and professors.
+`X-User-Id` is ignored. Public GET endpoints remain anonymous and permissions are checked in the services. ADMINISTRATOR logs in via UPM_ACCOUNT and can manage all ideas and comments, including UPM_COMMUNITY content; students and professors retain community access, while investors see public publications.
 
 ### Sessions, cookies and frontend
 

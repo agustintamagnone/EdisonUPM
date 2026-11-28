@@ -80,7 +80,7 @@ class IdeaLifecycleIntegrationTest {
                                 {"title":"CampusShare","elevatorPitch":"Share bikes","problemStatement":"Slow transport",
                                  "solutionDescription":"Shared bikes"}""";
 
-                // Only students can create ideas
+                // Professors cannot create ideas (students and administrators can).
                 mvc.perform(post("/api/ideas").with(csrf()).session(professorSession)
                                 .contentType(MediaType.APPLICATION_JSON).content(basics))
                                 .andExpect(status().isForbidden());
@@ -222,11 +222,13 @@ class IdeaLifecycleIntegrationTest {
                 mvc.perform(get("/api/ideas/{id}/comments", ideaId))
                                 .andExpect(jsonPath("$.count").value(1));
 
-                // Only the author can delete; deletion is soft
+                // The author or an administrator can permanently delete a comment.
                 mvc.perform(delete("/api/comments/{id}", commentId).with(csrf()).session(professorSession))
                                 .andExpect(status().isForbidden());
                 mvc.perform(delete("/api/comments/{id}", commentId).with(csrf()).session(otherSession))
-                                .andExpect(status().isNoContent());
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.id").value(commentId))
+                                .andExpect(jsonPath("$.message").value("Comment deleted successfully"));
                 mvc.perform(get("/api/ideas/{id}/comments", ideaId))
                                 .andExpect(jsonPath("$.count").value(0));
 
@@ -286,7 +288,7 @@ class IdeaLifecycleIntegrationTest {
                                 .andReturn();
                 String ideaId = JsonPath.read(created.getResponse().getContentAsString(), "$.id");
 
-                // Drafts are only visible to the founder
+                // Drafts are visible to their founder and administrators.
                 mvc.perform(get("/api/ideas/{id}", ideaId).session(otherSession))
                                 .andExpect(status().isNotFound());
 

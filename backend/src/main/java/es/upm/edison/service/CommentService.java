@@ -26,7 +26,7 @@ import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Validates comments, checks feedback permissions and applies soft deletion. */
+/** Validates comments and author/admin permissions, and permanently deletes comments. */
 @Service
 @Transactional
 public class CommentService {
@@ -50,9 +50,11 @@ public class CommentService {
     @Transactional(readOnly = true)
     public CommentListResponse list(UUID ideaId, UUID currentUserId) {
         User viewer = userRepository.findCurrent(currentUserId).orElse(null);
-        Idea idea = loadPublishedVisible(ideaId, viewer);
-        List<CommentResponse> comments = commentRepository
-                .findByIdeaIdAndStatusOrderByCreatedAtDesc(idea.getId(), CommentStatus.VISIBLE).stream()
+        Idea idea = loadForComments(ideaId, viewer);
+        List<Comment> storedComments = viewer != null && viewer.isAdministrator()
+                ? commentRepository.findByIdeaIdOrderByCreatedAtDesc(idea.getId())
+                : commentRepository.findByIdeaIdAndStatusOrderByCreatedAtDesc(idea.getId(), CommentStatus.VISIBLE);
+        List<CommentResponse> comments = storedComments.stream()
                 .map(CommentResponse::from)
                 .toList();
         return new CommentListResponse(comments.size(), comments);
@@ -69,8 +71,8 @@ public class CommentService {
             }
         }
 
-        // Verify again: idea PUBLISHED, user permission and content.
-        Idea idea = loadPublishedVisible(ideaId, author);
+        // Verify visibility, permitted state, commenter permissions and content.
+        Idea idea = loadForComments(ideaId, author);
         checkCanComment(idea, author);
         String content = validateContent(request.content());
 
@@ -79,32 +81,31 @@ public class CommentService {
     }
 
     public CommentResponse update(UUID commentId, UUID currentUserId, CommentRequest request) {
-        Comment comment = loadOwnVisibleComment(commentId, userRepository.requireCurrent(currentUserId));
+        Comment comment = loadManageableComment(commentId, userRepository.requireCurrent(currentUserId));
         comment.setContent(validateContent(request.content()));
         comment.setUpdatedAt(Instant.now());
         return CommentResponse.from(comment);
     }
 
-    /** Soft deletion: the comment is kept in the database with status DELETED. */
+    /** Permanently remove the comment; the idea and other comments are preserved. */
     public void delete(UUID commentId, UUID currentUserId) {
-        Comment comment = loadOwnVisibleComment(commentId, userRepository.requireCurrent(currentUserId));
-        comment.setStatus(CommentStatus.DELETED);
-        comment.setUpdatedAt(Instant.now());
+        Comment comment = loadManageableComment(commentId, userRepository.requireCurrent(currentUserId));
+        commentRepository.delete(comment);
     }
 
     // ---------- Rules ----------
 
-    private Idea loadPublishedVisible(UUID ideaId, User viewer) {
+    private Idea loadForComments(UUID ideaId, User viewer) {
         Idea idea = IdeaAccess.loadVisible(ideaRepository, ideaId, viewer);
-        if (idea.getStatus() != IdeaStatus.PUBLISHED) {
+        if (idea.getStatus() != IdeaStatus.PUBLISHED && (viewer == null || !viewer.isAdministrator())) {
             throw new NotFoundException("Idea unavailable");
         }
         return idea;
     }
 
-    /** The founder can always answer; other users need feedback enabled and an allowed role. */
+    /** Founders and administrators can answer; others need feedback enabled and an allowed role. */
     private static void checkCanComment(Idea idea, User user) {
-        if (idea.isFoundedBy(user)) {
+        if (user.isAdministrator() || idea.isFoundedBy(user)) {
             return;
         }
         if (!idea.isFeedbackEnabled()) {
@@ -115,12 +116,12 @@ public class CommentService {
         }
     }
 
-    private Comment loadOwnVisibleComment(UUID commentId, User user) {
+    private Comment loadManageableComment(UUID commentId, User user) {
         Comment comment = commentRepository.findById(commentId)
-                .filter(c -> c.getStatus() == CommentStatus.VISIBLE)
+                .filter(c -> user.isAdministrator() || c.getStatus() == CommentStatus.VISIBLE)
                 .orElseThrow(() -> new NotFoundException("Comment not found"));
-        if (!comment.isWrittenBy(user)) {
-            throw new ForbiddenException("You can only modify your own comments");
+        if (!comment.isWrittenBy(user) && !user.isAdministrator()) {
+            throw new ForbiddenException("Only the author or an administrator can modify this comment");
         }
         return comment;
     }
