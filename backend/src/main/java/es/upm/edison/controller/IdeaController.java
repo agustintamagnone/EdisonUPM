@@ -52,7 +52,7 @@ public class IdeaController {
         return ideaService.getDevelopmentStages();
     }
 
-    /** Repeat {@code tag} up to three times; optional {@code stage} filters without adding to the score. */
+    /** Repeat {@code tag} for any available tags; optional {@code stage} filters without adding to the score. */
     @GetMapping("/ideas")
     public PageResponse<IdeaSummaryResponse> browse(Principal principal,
                                                     @RequestParam(required = false) String q,

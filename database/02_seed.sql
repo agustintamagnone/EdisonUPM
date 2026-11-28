@@ -4,7 +4,7 @@
 -- Fictional demonstration accounts only. Demo password: EdisonDemo2026!
 -- =============================================================
 
-INSERT INTO users (id, full_name, email, password_hash, role, blocked) VALUES
+INSERT INTO users (id, full_name, email, role, password_hash, blocked) VALUES
   ('11111111-1111-1111-1111-111111111111', 'Lucia Martin',  'lucia.martin@alumnos.upm.es', 'STUDENT', '$2a$10$PDYn7y.lkCZahYv8TXpueuadGTy/1bvCQsT0MfC6rafEpiUIm.87y', 0),
   ('22222222-2222-2222-2222-222222222222', 'Carlos Ruiz',   'carlos.ruiz@alumnos.upm.es',  'STUDENT', '$2a$10$PDYn7y.lkCZahYv8TXpueuadGTy/1bvCQsT0MfC6rafEpiUIm.87y', 0),
   ('33333333-3333-3333-3333-333333333333', 'Elena Gomez',   'elena.gomez@upm.es',          'PROFESSOR', '$2a$10$PDYn7y.lkCZahYv8TXpueuadGTy/1bvCQsT0MfC6rafEpiUIm.87y', 0),
@@ -36,7 +36,7 @@ INSERT INTO idea_stage (idea_id, stage) VALUES
   ('a0000000-0000-0000-0000-000000000002', 'CONCEPT');
 
 INSERT INTO idea_metrics (idea_id, display_order, metric) VALUES
- ('a0000000-0000-0000-0000-000000000001', 1, '50 weekly users expected'),
+ ('a0000000-0000-0000-0000-000000000001', 0, '50 weekly users expected');
 
 INSERT INTO idea_allowed_commenter_roles (idea_id, role) VALUES
   ('a0000000-0000-0000-0000-000000000001', 'STUDENT'),
